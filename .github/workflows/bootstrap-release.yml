@@ -1,0 +1,250 @@
+name: Bootstrap verified v1.0.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.bootstrap/**'
+      - '.github/workflows/bootstrap-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  actions: read
+  security-events: write
+
+concurrency:
+  group: worldbisect-bootstrap-v1
+  cancel-in-progress: false
+
+env:
+  REPOSITORY: ClusterPilot-System/worldbisect
+  VERSION: 1.0.0
+  SOURCE_DATE_EPOCH: '0'
+
+jobs:
+  publish:
+    if: github.repository == 'ClusterPilot-System/worldbisect'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout bootstrap payload
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct and validate source archive
+        id: source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mapfile -t parts < <(find . -maxdepth 4 -type f \
+            \( -name '*.b64' -o -name '*.base64' -o -name '*.chunk' -o -name '*.part' -o -name '*.part.*' -o -name '*.part*' \) \
+            ! -path './.git/*' | LC_ALL=C sort)
+          if (( ${#parts[@]} == 0 )); then
+            echo 'No bootstrap archive parts found.' >&2
+            find . -maxdepth 4 -type f -not -path './.git/*' -print >&2
+            exit 2
+          fi
+          printf 'Archive parts:\n%s\n' "${parts[*]}"
+          cat "${parts[@]}" | tr -d '\r\n ' > /tmp/worldbisect-source.b64
+          base64 --decode /tmp/worldbisect-source.b64 > /tmp/worldbisect-source.archive
+          rm -rf /tmp/worldbisect-extract
+          mkdir -p /tmp/worldbisect-extract
+          if unzip -t /tmp/worldbisect-source.archive >/dev/null 2>&1; then
+            unzip -q /tmp/worldbisect-source.archive -d /tmp/worldbisect-extract
+          elif tar -tzf /tmp/worldbisect-source.archive >/dev/null 2>&1; then
+            tar -xzf /tmp/worldbisect-source.archive -C /tmp/worldbisect-extract
+          else
+            echo 'Reconstructed payload is neither a valid ZIP nor a valid gzip tar archive.' >&2
+            sha256sum /tmp/worldbisect-source.archive >&2
+            exit 3
+          fi
+          root="$(find /tmp/worldbisect-extract -type f -name go.mod -printf '%h\n' | head -n1)"
+          test -n "$root"
+          test -f "$root/LICENSE"
+          test -f "$root/README.md"
+          test -f "$root/SECURITY.md"
+          test -f "$root/CONTRIBUTING.md"
+          test -f "$root/CODE_OF_CONDUCT.md"
+          grep -Fxq 'module github.com/ClusterPilot-System/worldbisect' "$root/go.mod"
+          grep -q 'Apache License' "$root/LICENSE"
+          if grep -RIl --exclude-dir=.git -E 'github\.com/(JossefMo1|worldbisect)/worldbisect' "$root"; then
+            echo 'Stale repository identity detected.' >&2
+            exit 4
+          fi
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+          sha256sum /tmp/worldbisect-source.archive
+
+      - name: Materialize clean repository tree
+        shell: bash
+        env:
+          SOURCE_ROOT: ${{ steps.source.outputs.root }}
+        run: |
+          set -Eeuo pipefail
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$SOURCE_ROOT"/. .
+          rm -rf .git-disabled bin dist coverage.out .worldbisect
+          printf '1.0.0\n' > VERSION
+          mkdir -p .github
+          printf '* @JossefMo1\n' > .github/CODEOWNERS
+          git status --short
+
+      - name: Validate repository contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -f LICENSE
+          test -f NOTICE
+          test -f SECURITY.md
+          test -f CONTRIBUTING.md
+          test -f CODE_OF_CONDUCT.md
+          test -f GOVERNANCE.md
+          test -f SUPPORT.md
+          test -f .github/CODEOWNERS
+          grep -Fxq 'module github.com/ClusterPilot-System/worldbisect' go.mod
+          grep -Fxq '* @JossefMo1' .github/CODEOWNERS
+          git diff --check
+          find . -type l -print0 | while IFS= read -r -d '' p; do test -e "$p"; done
+          if grep -RIl --exclude-dir=.git -E 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}' .; then
+            echo 'Potential secret material detected.' >&2
+            exit 5
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Format, vet, test and race
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -z "$(gofmt -l $(find . -type f -name '*.go' -not -path './vendor/*'))"
+          go mod verify
+          go vet ./...
+          go test ./... -count=1
+          go test -race ./... -count=1
+
+      - name: Product E2E and release build
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          make check
+          make e2e
+          SOURCE_DATE_EPOCH=0 make release
+          test -d dist
+          find dist -maxdepth 1 -type f -print -exec sha256sum {} \;
+
+      - name: Commit canonical source tree
+        id: commit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'Yossef Mousa'
+          git config user.email '85544217+JossefMo1@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Release WorldBisect v1.0.0'
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Attest release artifacts
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+            dist/*SHA256SUMS*
+            dist/*.spdx.json
+
+      - name: Create immutable tag
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ steps.commit.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          if gh api "repos/${REPOSITORY}/git/ref/tags/v${VERSION}" >/dev/null 2>&1; then
+            existing="$(gh api "repos/${REPOSITORY}/git/ref/tags/v${VERSION}" --jq .object.sha)"
+            test "$existing" = "$RELEASE_SHA"
+          else
+            git tag -a "v${VERSION}" "$RELEASE_SHA" -m "WorldBisect v${VERSION}"
+            git push origin "v${VERSION}"
+          fi
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          cat > /tmp/release-notes.md <<'EOF'
+          # WorldBisect v1.0.0
+
+          WorldBisect is a Linux runtime-causality tool that identifies and verifies the minimal set of supported runtime conditions required to reproduce a command failure.
+
+          ## Included
+
+          - deterministic good/bad execution capture;
+          - typed runtime-factor comparison;
+          - bidirectional counterfactual verification;
+          - minimal causal-set analysis and signed causal certificates;
+          - CLI, daemon, REST API and embedded dashboard;
+          - hash-chained auditability, bounded jobs, leases, retries, timeouts and quotas;
+          - reproducible Linux AMD64/ARM64 artifacts;
+          - SPDX SBOM, checksums and GitHub artifact attestations;
+          - Apache-2.0 license and complete contributor/security documentation.
+
+          `PROVEN` is emitted only for supported controllable factors that pass bidirectional counterfactual validation. Read `SECURITY.md` and the documented trust boundary before deployment.
+          EOF
+          if gh release view "v${VERSION}" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "v${VERSION}" dist/* --repo "$REPOSITORY" --clobber
+          else
+            gh release create "v${VERSION}" dist/* \
+              --repo "$REPOSITORY" \
+              --title "WorldBisect v${VERSION}" \
+              --notes-file /tmp/release-notes.md \
+              --verify-tag \
+              --latest
+          fi
+
+      - name: Configure public repository metadata
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          gh api -X PATCH "repos/${REPOSITORY}" \
+            -f description='Git bisect for runtime reality: prove the minimal runtime conditions that make a Linux command fail.' \
+            -f homepage="https://github.com/${REPOSITORY}" \
+            -F has_issues=true -F has_projects=false -F has_wiki=false \
+            -F has_discussions=true -F delete_branch_on_merge=true \
+            -F allow_squash_merge=true -F allow_merge_commit=false \
+            -F allow_rebase_merge=false -F allow_auto_merge=true
+          gh api -X PUT "repos/${REPOSITORY}/topics" \
+            -f 'names[]=linux' -f 'names[]=debugging' -f 'names[]=devtools' \
+            -f 'names[]=observability' -f 'names[]=reproducibility' \
+            -f 'names[]=causal-inference' -f 'names[]=golang' -f 'names[]=open-source' -f 'names[]=cli'
+          gh api -X PUT "repos/${REPOSITORY}/vulnerability-alerts"
+          gh api -X PUT "repos/${REPOSITORY}/automated-security-fixes" || true
+          gh api -X PUT "repos/${REPOSITORY}/private-vulnerability-reporting" || true
+
+      - name: Final release verification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$(gh api "repos/${REPOSITORY}/git/ref/heads/main" --jq .object.sha)" = "$RELEASE_SHA"
+          gh release view "v${VERSION}" --repo "$REPOSITORY" --json tagName,isDraft,isPrerelease,url,assets,publishedAt
+          test "$(gh release view "v${VERSION}" --repo "$REPOSITORY" --json isDraft --jq .isDraft)" = false
+          test "$(gh release view "v${VERSION}" --repo "$REPOSITORY" --json isPrerelease --jq .isPrerelease)" = false
