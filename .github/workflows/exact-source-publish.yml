@@ -1,0 +1,270 @@
+name: Publish exact verified WorldBisect source and v1.0.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/exact-source-publish.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  security-events: write
+
+concurrency:
+  group: worldbisect-exact-v1-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REPOSITORY: ClusterPilot-System/worldbisect
+      RELEASE_TAG: v1.0.0
+      SOURCE_URL: https://worldbisect-source-20260818.serveo.net/worldbisect-v1.0.0-final-source.zip
+      SOURCE_SHA256: 20f0cb9a4262fe270073f1283f77a22488df6849f08caf145d0a16949bf1ce01
+      SOURCE_DATE_EPOCH: "0"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout publication branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Download and authenticate exact source archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl --fail-with-body --location --retry 12 --retry-all-errors --connect-timeout 15 \
+            --max-time 300 --output /tmp/worldbisect-source.zip "${SOURCE_URL}"
+          printf '%s  %s\n' "${SOURCE_SHA256}" /tmp/worldbisect-source.zip | sha256sum -c -
+          unzip -q /tmp/worldbisect-source.zip -d /tmp/worldbisect-source
+          test -d /tmp/worldbisect-source/worldbisect-1.0.0
+          test -f /tmp/worldbisect-source/worldbisect-1.0.0/go.mod
+          test -f /tmp/worldbisect-source/worldbisect-1.0.0/LICENSE
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: "1.25.x"
+          cache: false
+
+      - name: Normalize executable source files
+        shell: bash
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: |
+          set -Eeuo pipefail
+          chmod +x scripts/*.sh scripts/*.py examples/*/*.sh packaging/debian/postinst
+
+      - name: Verify repository completeness
+        shell: bash
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: |
+          set -Eeuo pipefail
+          required=(
+            README.md LICENSE NOTICE SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md
+            GOVERNANCE.md MAINTAINERS.md CHANGELOG.md VERSION go.mod Makefile
+            api/openapi.yaml docs/ARCHITECTURE.md docs/USER_GUIDE.md docs/SECURITY.md
+            cmd/worldbisect/main.go cmd/worldbisectd/main.go
+            internal/api/server.go internal/capture/capture.go internal/experiment/engine.go
+            internal/jobs/manager.go internal/runner/runner.go internal/service/service.go
+            internal/store/store.go internal/workspace/workspace.go web/index.html
+          )
+          for path in "${required[@]}"; do
+            test -f "${path}" || { echo "missing required file: ${path}" >&2; exit 1; }
+          done
+          count=$(find . -type f | wc -l)
+          test "${count}" -ge 120 || { echo "incomplete source archive: ${count} files" >&2; exit 1; }
+          test "$(cat VERSION)" = "1.0.0"
+          grep -qx 'module github.com/ClusterPilot-System/worldbisect' go.mod
+
+      - name: Formatting gate
+        shell: bash
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: |
+          set -Eeuo pipefail
+          dirty=$(gofmt -l .)
+          test -z "${dirty}" || { printf '%s\n' "${dirty}" >&2; exit 1; }
+
+      - name: Static analysis gate
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: go vet ./...
+
+      - name: Unit and integration gate
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: go test ./... -count=1
+
+      - name: Race detector gate
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: timeout --foreground 900s go test -race ./... -count=1
+
+      - name: End-to-end gate
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: timeout --foreground 300s make e2e
+
+      - name: Deterministic release build
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: timeout --foreground 1200s make release
+
+      - name: Verify release artifacts
+        shell: bash
+        working-directory: /tmp/worldbisect-source/worldbisect-1.0.0
+        run: |
+          set -Eeuo pipefail
+          (cd dist && sha256sum -c SHA256SUMS)
+          test -f dist/worldbisect-1.0.0-source.tar.gz
+          test -f dist/worldbisect-1.0.0.spdx.json
+          test -f dist/worldbisect_1.0.0_linux_amd64.tar.gz
+          test -f dist/worldbisect_1.0.0_linux_arm64.tar.gz
+          test -f dist/worldbisect_1.0.0_linux_amd64.deb
+          test -f dist/worldbisect_1.0.0_linux_arm64.deb
+          for archive in dist/*.tar.gz; do
+            if tar -tzf "${archive}" | grep -Eq '(^|/)\.\.(/|$)|^/'; then
+              echo "unsafe archive path: ${archive}" >&2
+              exit 1
+            fi
+          done
+          python3 -m json.tool dist/worldbisect-1.0.0.spdx.json >/dev/null
+
+      - name: Materialize exact source tree
+        id: source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          src=/tmp/worldbisect-source/worldbisect-1.0.0
+          rsync -a --delete \
+            --exclude=.git \
+            --exclude=dist \
+            --exclude=bin \
+            --exclude=build \
+            "${src}/" "${GITHUB_WORKSPACE}/"
+          chmod +x scripts/*.sh scripts/*.py examples/*/*.sh packaging/debian/postinst
+          test ! -e .bootstrap
+          test ! -e .bootstrap-exact
+          test ! -e .github/workflows/exact-source-publish.yml
+          test "$(find . -type f ! -path './.git/*' | wc -l)" -ge 120
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Publish complete verified WorldBisect v1.0.0 source"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - name: Create immutable annotated release tag
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha='${{ steps.source.outputs.sha }}'
+          current=$(gh api "repos/${REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null || true)
+          if [[ -n "${current}" ]]; then
+            echo "${RELEASE_TAG} already exists; refusing to move an immutable release tag" >&2
+            exit 1
+          fi
+          tag_payload=$(jq -n \
+            --arg tag "${RELEASE_TAG}" \
+            --arg message "WorldBisect v1.0.0" \
+            --arg object "${sha}" \
+            '{tag:$tag,message:$message,object:$object,type:"commit"}')
+          tag_sha=$(curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPOSITORY}/git/tags" \
+            -d "${tag_payload}" | jq -er '.sha')
+          ref_payload=$(jq -n --arg ref "refs/tags/${RELEASE_TAG}" --arg sha "${tag_sha}" '{ref:$ref,sha:$sha}')
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPOSITORY}/git/refs" \
+            -d "${ref_payload}" >/dev/null
+
+      - name: Attest release artifacts
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-checksums: /tmp/worldbisect-source/worldbisect-1.0.0/dist/SHA256SUMS
+
+      - name: Publish GitHub release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > /tmp/release-notes.md <<'NOTES'
+          # WorldBisect v1.0.0
+
+          Initial public release under the Apache License 2.0.
+
+          WorldBisect captures good and bad Linux command executions, identifies supported runtime differences, executes bounded bidirectional counterfactual experiments, and emits independently verifiable causal certificates.
+
+          The release includes Linux AMD64 and ARM64 archives, Debian packages, source archive, SHA-256 checksums, and an SPDX 2.3 SBOM.
+
+          Review `README.md`, `docs/USER_GUIDE.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `SECURITY.md`, and `CHANGELOG.md` before production use.
+          NOTES
+          gh release create "${RELEASE_TAG}" \
+            /tmp/worldbisect-source/worldbisect-1.0.0/dist/* \
+            --repo "${REPOSITORY}" \
+            --title "WorldBisect v1.0.0" \
+            --notes-file /tmp/release-notes.md \
+            --verify-tag
+
+      - name: Configure repository metadata and merge policy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -n '{
+            description:"Git bisect for runtime reality: prove the smallest runtime factor set that makes a Linux command fail.",
+            homepage:"https://github.com/ClusterPilot-System/worldbisect",
+            has_issues:true,
+            has_projects:false,
+            has_wiki:false,
+            has_discussions:true,
+            allow_squash_merge:true,
+            allow_merge_commit:false,
+            allow_rebase_merge:false,
+            allow_auto_merge:true,
+            delete_branch_on_merge:true,
+            allow_update_branch:true,
+            web_commit_signoff_required:true
+          }' | gh api --method PATCH "repos/${REPOSITORY}" --input - >/dev/null
+          jq -n '{names:["linux","debugging","causal-inference","delta-debugging","reproducibility","devtools","observability","go","open-source","runtime-analysis"]}' \
+            | gh api --method PUT "repos/${REPOSITORY}/topics" --input - >/dev/null
+
+      - name: Enable repository security controls
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh api --method PUT "repos/${REPOSITORY}/vulnerability-alerts" >/dev/null || true
+          gh api --method PUT "repos/${REPOSITORY}/automated-security-fixes" >/dev/null || true
+          gh api --method PUT "repos/${REPOSITORY}/private-vulnerability-reporting" >/dev/null || true
+          jq -n '{security_and_analysis:{advanced_security:{status:"enabled"},secret_scanning:{status:"enabled"},secret_scanning_push_protection:{status:"enabled"}}}' \
+            | gh api --method PATCH "repos/${REPOSITORY}" --input - >/dev/null || true
+
+      - name: Protect main branch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -n '{
+            required_status_checks:null,
+            enforce_admins:true,
+            required_pull_request_reviews:{
+              dismissal_restrictions:{users:[],teams:[],apps:[]},
+              dismiss_stale_reviews:true,
+              require_code_owner_reviews:true,
+              required_approving_review_count:1,
+              require_last_push_approval:true
+            },
+            restrictions:null,
+            required_linear_history:true,
+            allow_force_pushes:false,
+            allow_deletions:false,
+            block_creations:false,
+            required_conversation_resolution:true,
+            lock_branch:false,
+            allow_fork_syncing:true
+          }' | gh api --method PUT "repos/${REPOSITORY}/branches/main/protection" --input - >/dev/null
