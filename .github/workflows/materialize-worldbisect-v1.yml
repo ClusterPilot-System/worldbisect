@@ -1,0 +1,239 @@
+name: Materialize and publish WorldBisect v1.0.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.payload/**'
+      - '.github/workflows/materialize-worldbisect-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  actions: read
+
+concurrency:
+  group: worldbisect-materialize-v1.0.0
+  cancel-in-progress: false
+
+env:
+  REPOSITORY: ClusterPilot-System/worldbisect
+  VERSION: 1.0.0
+  SOURCE_DATE_EPOCH: '0'
+  EXPECTED_ARCHIVE_SHA256: d774469333d5e9303fcccc398b959cdf3fff5ab4f3e5ea0c576a4bc0d6e59554
+  EXPECTED_SOURCE_FILES: '128'
+
+jobs:
+  materialize:
+    if: github.repository == 'ClusterPilot-System/worldbisect'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout transport commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct immutable source archive
+        id: source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mapfile -t parts < <(find .payload -maxdepth 1 -type f -name 'worldbisect-source.tar.xz.b64.part-*' | LC_ALL=C sort)
+          test "${#parts[@]}" -eq 8
+          for index in 00 01 02 03 04 05 06 07; do
+            test -f ".payload/worldbisect-source.tar.xz.b64.part-${index}"
+          done
+          cat "${parts[@]}" | tr -d '\r\n ' | base64 --decode > /tmp/worldbisect-source.archive
+          actual="$(sha256sum /tmp/worldbisect-source.archive | awk '{print $1}')"
+          if [[ "$actual" != "$EXPECTED_ARCHIVE_SHA256" ]]; then
+            printf 'Source archive digest mismatch: expected %s, got %s\n' "$EXPECTED_ARCHIVE_SHA256" "$actual" >&2
+            exit 2
+          fi
+          rm -rf /tmp/worldbisect-extract
+          mkdir -p /tmp/worldbisect-extract
+          if unzip -t /tmp/worldbisect-source.archive >/dev/null 2>&1; then
+            unzip -q /tmp/worldbisect-source.archive -d /tmp/worldbisect-extract
+          elif tar -tJf /tmp/worldbisect-source.archive >/dev/null 2>&1; then
+            tar -xJf /tmp/worldbisect-source.archive -C /tmp/worldbisect-extract
+          else
+            echo 'Payload is neither a valid ZIP nor an xz-compressed tar archive.' >&2
+            exit 3
+          fi
+          root="$(find /tmp/worldbisect-extract -type f -name go.mod -printf '%h\n' | head -n1)"
+          test -n "$root"
+          files="$(find "$root" -type f | wc -l | tr -d ' ')"
+          test "$files" = "$EXPECTED_SOURCE_FILES"
+          grep -Fxq 'module github.com/ClusterPilot-System/worldbisect' "$root/go.mod"
+          for path in \
+            cmd/worldbisect/main.go \
+            cmd/worldbisectd/main.go \
+            internal/analysis/analysis.go \
+            internal/api/server.go \
+            internal/jobs/manager.go \
+            internal/service/service.go \
+            pkg/contracts/contracts.go \
+            api/openapi.yaml \
+            web/index.html \
+            docs/ARCHITECTURE.md \
+            docs/SECURITY.md \
+            packaging/systemd/worldbisectd.service \
+            LICENSE README.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md; do
+            test -f "$root/$path"
+          done
+          if grep -RIl --exclude-dir=.git -E 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}' "$root"; then
+            echo 'Potential secret material detected in source payload.' >&2
+            exit 4
+          fi
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+          printf 'Archive SHA-256 verified: %s\n' "$actual"
+          printf 'Source file count verified: %s\n' "$files"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: ${{ steps.source.outputs.root }}/go.mod
+          cache: false
+
+      - name: Execute complete release gate
+        shell: bash
+        env:
+          SOURCE_ROOT: ${{ steps.source.outputs.root }}
+        run: |
+          set -Eeuo pipefail
+          cd "$SOURCE_ROOT"
+          test -z "$(gofmt -l $(find . -type f -name '*.go' -not -path './vendor/*'))"
+          go mod verify
+          go vet ./...
+          go test ./... -count=1
+          go test -race ./... -count=1
+          make check
+          make e2e
+          SOURCE_DATE_EPOCH=0 make release
+          test -d dist
+          cp -a dist /tmp/worldbisect-release-dist
+          sha256sum /tmp/worldbisect-release-dist/*
+
+      - name: Materialize canonical repository tree
+        id: commit
+        shell: bash
+        env:
+          SOURCE_ROOT: ${{ steps.source.outputs.root }}
+        run: |
+          set -Eeuo pipefail
+          rm -rf "$SOURCE_ROOT/bin" "$SOURCE_ROOT/dist" "$SOURCE_ROOT/coverage.out" "$SOURCE_ROOT/.worldbisect" "$SOURCE_ROOT/.git-disabled"
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$SOURCE_ROOT"/. .
+          printf '1.0.0\n' > VERSION
+          mkdir -p .github
+          printf '* @JossefMo1\n' > .github/CODEOWNERS
+          test "$(find . -type f -not -path './.git/*' | wc -l | tr -d ' ')" -ge "$EXPECTED_SOURCE_FILES"
+          test -f cmd/worldbisect/main.go
+          test -f internal/analysis/analysis.go
+          test -f docs/ARCHITECTURE.md
+          test ! -e .payload
+          test ! -e .bootstrap
+          test ! -e .github/workflows/bootstrap-release.yml
+          test ! -e .github/workflows/materialize-worldbisect-v1.yml
+          git status --short
+          git diff --check
+          git config user.name 'Yossef Mousa'
+          git config user.email '85544217+JossefMo1@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Release complete WorldBisect v1.0.0 source architecture'
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Attest release artifacts
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: /tmp/worldbisect-release-dist/*
+
+      - name: Create immutable release tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
+            existing="$(git rev-list -n1 "v${VERSION}")"
+            if [[ "$existing" != "$RELEASE_SHA" ]]; then
+              printf 'Existing v%s tag points to %s, expected %s. Refusing to move immutable tag.\n' "$VERSION" "$existing" "$RELEASE_SHA" >&2
+              exit 5
+            fi
+          else
+            git tag -a "v${VERSION}" "$RELEASE_SHA" -m "WorldBisect v${VERSION}"
+            git push origin "refs/tags/v${VERSION}"
+          fi
+
+      - name: Publish GitHub release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          cat > /tmp/release-notes.md <<'EOF'
+          # WorldBisect v1.0.0
+
+          WorldBisect is an Apache-2.0 Linux runtime-causality toolkit. It captures good and bad executions, compares supported runtime factors, performs bidirectional counterfactual validation, minimizes causal sets, and emits verifiable reports and signed causal certificates.
+
+          The release includes the CLI, daemon, versioned REST API, embedded dashboard, audit chain, persistent bounded jobs, observability, reproducible Linux AMD64/ARM64 packages, SPDX SBOM, checksums, architecture documentation, threat model, operator runbook, user guide, contribution policy, and complete automated tests.
+
+          `PROVEN` is emitted only for supported controllable factors that pass the documented bidirectional counterfactual contract. Review `SECURITY.md`, `docs/THREAT-MODEL.md`, and `docs/USER.md` before deployment.
+          EOF
+          if gh release view "v${VERSION}" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "v${VERSION}" /tmp/worldbisect-release-dist/* --repo "$REPOSITORY" --clobber
+            gh release edit "v${VERSION}" --repo "$REPOSITORY" --title "WorldBisect v${VERSION}" --notes-file /tmp/release-notes.md --latest
+          else
+            gh release create "v${VERSION}" /tmp/worldbisect-release-dist/* \
+              --repo "$REPOSITORY" \
+              --title "WorldBisect v${VERSION}" \
+              --notes-file /tmp/release-notes.md \
+              --verify-tag \
+              --latest
+          fi
+
+      - name: Configure public repository metadata
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          gh api -X PATCH "repos/${REPOSITORY}" \
+            -f description='Git bisect for runtime reality: prove the minimal runtime conditions that make a Linux command fail.' \
+            -f homepage="https://github.com/${REPOSITORY}" \
+            -F has_issues=true -F has_projects=false -F has_wiki=false \
+            -F has_discussions=true -F delete_branch_on_merge=true \
+            -F allow_squash_merge=true -F allow_merge_commit=false \
+            -F allow_rebase_merge=false -F allow_auto_merge=true
+          gh api -X PUT "repos/${REPOSITORY}/topics" \
+            -f 'names[]=linux' -f 'names[]=debugging' -f 'names[]=devtools' \
+            -f 'names[]=observability' -f 'names[]=reproducibility' \
+            -f 'names[]=causal-inference' -f 'names[]=golang' \
+            -f 'names[]=open-source' -f 'names[]=cli'
+          gh api -X PUT "repos/${REPOSITORY}/vulnerability-alerts" || true
+          gh api -X PUT "repos/${REPOSITORY}/automated-security-fixes" || true
+          gh api -X PUT "repos/${REPOSITORY}/private-vulnerability-reporting" || true
+
+      - name: Verify public release state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$(gh api "repos/${REPOSITORY}/git/ref/heads/main" --jq .object.sha)" = "$RELEASE_SHA"
+          test "$(gh api "repos/${REPOSITORY}/contents/cmd/worldbisect/main.go?ref=main" --jq .type)" = file
+          test "$(gh api "repos/${REPOSITORY}/contents/internal/analysis/analysis.go?ref=main" --jq .type)" = file
+          test "$(gh api "repos/${REPOSITORY}/contents/docs/ARCHITECTURE.md?ref=main" --jq .type)" = file
+          test "$(gh release view "v${VERSION}" --repo "$REPOSITORY" --json isDraft --jq .isDraft)" = false
+          test "$(gh release view "v${VERSION}" --repo "$REPOSITORY" --json isPrerelease --jq .isPrerelease)" = false
+          gh release view "v${VERSION}" --repo "$REPOSITORY" --json tagName,url,assets,publishedAt
