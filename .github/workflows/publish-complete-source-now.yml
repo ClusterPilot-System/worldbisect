@@ -1,0 +1,158 @@
+name: Publish complete WorldBisect source now
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-complete-source-now.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: worldbisect-complete-source-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'ClusterPilot-System/worldbisect'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout transport tree
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct verified source
+        id: source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mapfile -t parts < <(find .payload -maxdepth 1 -type f -name 'worldbisect-source.tar.xz.b64.part-*' | LC_ALL=C sort)
+          test "${#parts[@]}" -eq 8
+          cat "${parts[@]}" | tr -d '\r\n ' | base64 --decode > /tmp/worldbisect-source.tar.xz
+          echo 'd774469333d5e9303fcccc398b959cdf3fff5ab4f3e5ea0c576a4bc0d6e59554  /tmp/worldbisect-source.tar.xz' | sha256sum -c -
+          xz -t /tmp/worldbisect-source.tar.xz
+          rm -rf /tmp/worldbisect-source
+          mkdir -p /tmp/worldbisect-source
+          tar -xJf /tmp/worldbisect-source.tar.xz -C /tmp/worldbisect-source
+          root="$(find /tmp/worldbisect-source -type f -name go.mod -printf '%h\n' | head -n1)"
+          test -n "$root"
+          test "$(find "$root" -type f | wc -l | tr -d ' ')" = 128
+          required=(
+            cmd/worldbisect/main.go
+            cmd/worldbisectd/main.go
+            internal/api/server.go
+            internal/capture/capture.go
+            internal/experiment/engine.go
+            internal/jobs/manager.go
+            internal/runner/runner.go
+            internal/service/service.go
+            internal/store/store.go
+            pkg/contracts/v1/types.go
+            api/openapi.yaml
+            web/index.html
+            docs/architecture.md
+            docs/user-guide.md
+            packaging/systemd/worldbisectd.service
+            LICENSE NOTICE SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md go.mod Makefile
+          )
+          for path in "${required[@]}"; do test -f "$root/$path"; done
+          grep -Fxq 'module github.com/ClusterPilot-System/worldbisect' "$root/go.mod"
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+
+      - name: Set executable modes
+        shell: bash
+        env:
+          SOURCE_ROOT: ${{ steps.source.outputs.root }}
+        run: |
+          set -Eeuo pipefail
+          chmod +x "$SOURCE_ROOT"/scripts/*.sh
+          chmod +x "$SOURCE_ROOT"/scripts/*.py
+          chmod +x "$SOURCE_ROOT"/examples/*/*.sh
+          chmod +x "$SOURCE_ROOT"/packaging/debian/postinst
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: ${{ steps.source.outputs.root }}/go.mod
+          cache: false
+
+      - name: Validate complete source
+        shell: bash
+        env:
+          SOURCE_ROOT: ${{ steps.source.outputs.root }}
+        run: |
+          set -Eeuo pipefail
+          cd "$SOURCE_ROOT"
+          test -z "$(gofmt -l .)"
+          go mod verify
+          go vet ./...
+          go test ./... -count=1
+          go test -race ./... -count=1
+          make check
+          make e2e
+
+      - name: Replace bootstrap with actual repository source
+        id: commit
+        shell: bash
+        env:
+          SOURCE_ROOT: ${{ steps.source.outputs.root }}
+        run: |
+          set -Eeuo pipefail
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$SOURCE_ROOT"/. .
+          rm -rf bin dist .coverage coverage.out .worldbisect .git-disabled
+          mkdir -p .github
+          printf '* @JossefMo1\n' > .github/CODEOWNERS
+
+          test ! -e .payload
+          test ! -e .bootstrap
+          test -f cmd/worldbisect/main.go
+          test -f cmd/worldbisectd/main.go
+          test -f internal/api/server.go
+          test -f internal/experiment/engine.go
+          test -f internal/service/service.go
+          test -f internal/store/store.go
+          test -f pkg/contracts/v1/types.go
+          test -f api/openapi.yaml
+          test -f web/index.html
+          test -f docs/architecture.md
+          test "$(find . -type f -not -path './.git/*' | wc -l | tr -d ' ')" -ge 128
+
+          git config user.name 'Yossef Mousa'
+          git config user.email '85544217+JossefMo1@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Publish complete WorldBisect source architecture'
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify remote main contains code
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$(gh api repos/ClusterPilot-System/worldbisect/git/ref/heads/main --jq .object.sha)" = "$RELEASE_SHA"
+          for path in \
+            cmd/worldbisect/main.go \
+            cmd/worldbisectd/main.go \
+            internal/api/server.go \
+            internal/experiment/engine.go \
+            internal/jobs/manager.go \
+            internal/runner/runner.go \
+            internal/service/service.go \
+            internal/store/store.go \
+            pkg/contracts/v1/types.go \
+            api/openapi.yaml \
+            web/index.html \
+            docs/architecture.md; do
+            test "$(gh api "repos/ClusterPilot-System/worldbisect/contents/${path}?ref=main" --jq .type)" = file
+          done
+          if gh api 'repos/ClusterPilot-System/worldbisect/contents/.payload?ref=main' >/dev/null 2>&1; then exit 20; fi
+          if gh api 'repos/ClusterPilot-System/worldbisect/contents/.bootstrap?ref=main' >/dev/null 2>&1; then exit 21; fi
