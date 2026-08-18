@@ -1,0 +1,35 @@
+name: Incorrect causal proof
+about: Report a PROVEN result that appears unsound
+title: "[Proof integrity]: "
+labels: ["proof-integrity", "security", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An incorrect PROVEN result is security-sensitive. If the report contains private evidence or enables exploitation, use private vulnerability reporting instead.
+  - type: input
+    id: version
+    attributes:
+      label: WorldBisect version
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: Claimed cause
+      description: State the generated causal claim without including secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: counterexample
+    attributes:
+      label: Counterexample
+      description: Explain why the bidirectional intervention result appears invalid.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal sanitized reproduction
+    validations:
+      required: true

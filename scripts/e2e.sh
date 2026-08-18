@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+store="$work/store"
+good="$work/good"
+bad="$work/bad"
+imported="$work/imported"
+mkdir -p "$good" "$bad" "$imported"
+
+cat > "$good/check.sh" <<'SH'
+#!/bin/sh
+set -eu
+grep -qx 'mode=good' config.txt
+SH
+chmod +x "$good/check.sh"
+cp "$good/check.sh" "$bad/check.sh"
+printf 'mode=good\n' > "$good/config.txt"
+printf 'mode=bad\n' > "$bad/config.txt"
+
+mkdir -p "$work/bin"
+go build -o "$work/bin/worldbisect" ./cmd/worldbisect
+go build -o "$work/bin/worldbisectd" ./cmd/worldbisectd
+
+"$work/bin/worldbisect" capture --store "$store" --workspace "$good" --oracle exit=0 --output "$work/good.wcap" -- ./check.sh > "$work/good.out"
+if "$work/bin/worldbisect" capture --store "$store" --workspace "$bad" --oracle exit=0 --output "$work/bad.wcap" -- ./check.sh > "$work/bad.out" 2> "$work/bad.err"; then
+  echo "bad capture unexpectedly succeeded" >&2
+  exit 1
+fi
+
+"$work/bin/worldbisect" import --store "$imported" "$work/good.wcap" >/dev/null
+analysis_json=$("$work/bin/worldbisect" compare --store "$store" --good "$work/good.wcap" --bad "$work/bad.wcap" --format json --certificate "$work/result.wbc" -- ./check.sh)
+printf '%s\n' "$analysis_json" > "$work/analysis.json"
+python3 - "$work/analysis.json" <<'PY'
+import json, sys
+value=json.load(open(sys.argv[1]))
+assert value["status"] == "PROVEN", value
+assert len(value["causal_factors"]) == 1, value
+factors={item["id"]: item for item in value["factors"]}
+assert factors[value["causal_factors"][0]]["key"] == "config.txt", value
+PY
+"$work/bin/worldbisect" verify "$work/result.wbc" > "$work/verify.json"
+python3 - "$work/verify.json" <<'PY'
+import json, sys
+value=json.load(open(sys.argv[1]))
+assert value["valid"] is True, value
+PY
+"$work/bin/worldbisect" audit --store "$store" > "$work/audit.json"
+python3 - "$work/audit.json" <<'PY'
+import json, sys
+value=json.load(open(sys.argv[1]))
+assert value["valid"] is True, value
+PY
+
+config="$work/config.json"
+init_output=$("$work/bin/worldbisectd" init --config "$config" --data-dir "$work/daemon-data" --listen 127.0.0.1:0)
+token=$(printf '%s\n' "$init_output" | sed -n 's/^Initial bearer token (shown once): //p')
+test -n "$token"
+if grep -q "$token" "$config"; then
+  echo "raw token persisted" >&2
+  exit 1
+fi
+
+printf 'e2e: PASS\n'

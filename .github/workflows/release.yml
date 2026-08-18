@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing semantic version tag to release
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_DATE_EPOCH: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="${{ inputs.tag }}"
+            git rev-parse "refs/tags/${tag}" >/dev/null
+          fi
+          version="${tag#v}"
+          test "$(cat VERSION)" = "${version}"
+          printf 'tag=%s\nversion=%s\n' "$tag" "$version" >> "$GITHUB_OUTPUT"
+      - name: Validate
+        run: |
+          make check
+          make test-race
+          make e2e
+      - name: Build deterministic release
+        run: make release
+      - name: Verify checksums
+        run: cd dist && sha256sum -c SHA256SUMS
+      - name: Attest release artifacts
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/SHA256SUMS
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes="$(mktemp)"
+          awk -v v="${VERSION}" '
+            $0 == "## [" v "]" {found=1; next}
+            found && /^## \[/ {exit}
+            found {print}
+          ' CHANGELOG.md > "$notes"
+          if ! grep -q '[^[:space:]]' "$notes"; then
+            printf 'WorldBisect %s\n' "$VERSION" > "$notes"
+          fi
+          gh release create "$TAG" dist/* \
+            --title "WorldBisect ${VERSION}" \
+            --notes-file "$notes" \
+            --verify-tag

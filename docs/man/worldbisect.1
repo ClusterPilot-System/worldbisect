@@ -1,0 +1,63 @@
+.TH WORLDBISECT 1 "August 2026" "WorldBisect 1.0.0" "User Commands"
+.SH NAME
+worldbisect \- find a bounded causal factor set for a Linux command failure
+.SH SYNOPSIS
+.B worldbisect capture
+.RI [ options ]
+.B --
+.I command
+.RI [ arguments ]
+.PP
+.B worldbisect compare
+.RI [ options ]
+.B --
+.I command
+.RI [ arguments ]
+.PP
+.B worldbisect explain
+.RI [ options ]
+.I analysis-id
+.SH DESCRIPTION
+WorldBisect captures good and bad runtime worlds, compares supported factors, runs isolated counterfactual experiments, minimizes the factor set, and verifies the result bidirectionally.
+.PP
+A PROVEN result applies only within the documented intervention model. See worldbisect(1) documentation and docs/limitations.md before relying on a result.
+.SH COMMANDS
+.TP
+.B capture
+Capture a command, oracle result, workspace, environment, and bounded host evidence.
+.TP
+.B compare
+Compare good and bad captures and run causal experiments.
+.TP
+.B explain
+Render a stored analysis.
+.TP
+.B export
+Create a deterministic portable capture bundle.
+.TP
+.B import
+Import and validate a capture bundle.
+.TP
+.B verify
+Verify an Ed25519 causal certificate.
+.TP
+.B audit
+Verify the local append-only audit hash chain.
+.TP
+.B doctor
+Inspect host capabilities and configuration.
+.TP
+.B serve
+Run the authenticated local API and dashboard.
+.SH SECURITY
+WorldBisect executes user-selected commands. Imported captures and bundles are untrusted. Remote command execution is disabled by default. Review SECURITY.md and docs/security.md.
+.SH FILES
+.TP
+.I ~/.local/share/worldbisect
+Default local data store.
+.TP
+.I /etc/worldbisect/config.json
+Default daemon configuration.
+.SH SEE ALSO
+.BR worldbisectd (8),
+.BR worldbisect.conf (5)

@@ -1,0 +1,9 @@
+Package: worldbisect
+Version: @VERSION@
+Section: devel
+Priority: optional
+Architecture: @ARCH@
+Maintainer: WorldBisect contributors
+Description: Git bisect for runtime reality
+ WorldBisect captures good and bad Linux command executions and performs bounded,
+ bidirectional counterfactual experiments to isolate supported causal factors.

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "listen": "127.0.0.1:8787",
+  "data_dir": "/var/lib/worldbisect",
+  "log_level": "info",
+  "remote_execution_enabled": false,
+  "allowed_commands": [
+    "/usr/bin/true"
+  ],
+  "allowed_working_directories": [
+    "/srv/worldbisect"
+  ],
+  "workers": 2,
+  "lease_seconds": 30,
+  "max_attempts": 3,
+  "quotas": {
+    "max_sessions": 1000,
+    "max_workspace_files": 10000,
+    "max_workspace_bytes": 1073741824,
+    "max_output_bytes": 8388608,
+    "max_factors": 512,
+    "max_experiments": 256,
+    "max_request_bytes": 1048576
+  },
+  "tokens": [
+    {
+      "name": "replace-me",
+      "hash": "sha256:replace-with-worldbisectd-init-output",
+      "scopes": [
+        "read"
+      ]
+    }
+  ]
+}

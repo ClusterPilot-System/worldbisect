@@ -1,0 +1,6 @@
+WorldBisect
+Copyright 2026 WorldBisect contributors
+
+This product is licensed under the Apache License, Version 2.0.
+
+No third-party runtime components are bundled in the WorldBisect source distribution. Build and release environments may use third-party tools under their respective licenses.

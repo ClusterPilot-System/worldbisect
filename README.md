@@ -1,9 +1,215 @@
 # WorldBisect
 
-> Git bisect for runtime reality.
+**Git bisect for runtime reality.**
 
-WorldBisect is an Apache-2.0 Linux runtime-causality toolkit. It captures good and bad executions, compares supported runtime factors, performs bidirectional counterfactual validation, minimizes causal sets, and emits verifiable reports and signed causal certificates.
+WorldBisect is a local-first Linux diagnostic system that finds the smallest supported set of runtime conditions that causes a command to fail. It captures good and bad executions, compares the runtime worlds they consulted, performs isolated counterfactual experiments, and emits a machine-verifiable causal result.
 
-The repository contains the complete CLI, daemon, REST API, embedded dashboard, persistent job engine, audit chain, observability, packaging, CI/CD, tests, architecture documentation, threat model, operator runbook, and user documentation.
+```bash
+worldbisect capture --output good.wcap -- ./application
+worldbisect capture --output bad.wcap -- ./application
+worldbisect compare --good good.wcap --bad bad.wcap -- ./application
+```
 
-See the full documentation in [`docs/`](docs/), begin with [`docs/USER.md`](docs/USER.md), and review [`SECURITY.md`](SECURITY.md) before deployment.
+For supported factors, a `PROVEN` result means the minimized factor set repairs the bad world and reproduces the failure when applied in the opposite direction. Unsupported or uncontrolled factors are reported as evidence boundaries rather than guessed causes.
+
+## Why WorldBisect
+
+Linux debugging tools answer important partial questions:
+
+- logs show what an application reported;
+- tracing shows operations that were attempted;
+- record/replay repeats an execution;
+- Git bisect finds a behavior-changing commit.
+
+WorldBisect asks a different question:
+
+> Which smallest supported set of runtime conditions was necessary for this observed failure?
+
+The 1.0 causal contract is intentionally bounded. It can intervene on non-secret environment variables and regular workspace objects, including file content, file mode, presence, directories, and symbolic links. Host files, shared libraries, mounts, resources, network observations, secret values, kernel scheduling, hardware, and distributed systems can be captured as evidence but are not automatically promoted to `PROVEN` causes in 1.0.
+
+## Status
+
+WorldBisect 1.0 is released as a stable, maintenance-oriented package for Linux. It is not an automatic code repair agent and does not claim universal causal completeness.
+
+Supported release platforms:
+
+- Linux AMD64: native syscall capture with a bounded `ptrace` tracer;
+- Linux ARM64: portable basic capture fallback;
+- other platforms: source compatibility is not part of the 1.0 release contract.
+
+Read [`docs/limitations.md`](docs/limitations.md) before relying on a causal result.
+
+## Install
+
+### Release tarball
+
+Download the tarball and `SHA256SUMS` from the GitHub release, verify the checksum, then install:
+
+```bash
+sha256sum -c SHA256SUMS
+sudo ./scripts/install.sh
+```
+
+### Debian package
+
+```bash
+sudo dpkg -i worldbisect_1.0.0_linux_amd64.deb
+```
+
+### From source
+
+```bash
+git clone https://github.com/ClusterPilot-System/worldbisect.git
+cd worldbisect
+make check
+make build
+sudo make install
+```
+
+## First causal analysis
+
+Create two isolated workspaces with a machine-checkable oracle. The examples directory contains complete fixtures.
+
+```bash
+cp -R examples/file-cause /tmp/worldbisect-good
+cp -R examples/file-cause /tmp/worldbisect-bad
+cp /tmp/worldbisect-good/config.good.txt /tmp/worldbisect-good/config.txt
+cp /tmp/worldbisect-bad/config.bad.txt /tmp/worldbisect-bad/config.txt
+
+worldbisect capture \
+  --store /tmp/worldbisect-store \
+  --workspace /tmp/worldbisect-good \
+  --oracle exit=0 \
+  --output /tmp/good.wcap \
+  -- ./check.sh
+
+worldbisect capture \
+  --store /tmp/worldbisect-store \
+  --workspace /tmp/worldbisect-bad \
+  --oracle exit=0 \
+  --output /tmp/bad.wcap \
+  -- ./check.sh || true
+
+worldbisect compare \
+  --store /tmp/worldbisect-store \
+  --good /tmp/good.wcap \
+  --bad /tmp/bad.wcap \
+  -- ./check.sh
+```
+
+Expected conclusion:
+
+```text
+status: PROVEN
+factor: workspace file config.txt
+```
+
+## Commands
+
+```text
+worldbisect capture     Capture a command and its bounded runtime world
+worldbisect compare     Compare good and bad sessions and run interventions
+worldbisect explain     Render a stored analysis
+worldbisect export      Create a deterministic portable bundle
+worldbisect import      Import a validated bundle
+worldbisect verify      Verify a causal certificate
+worldbisect audit       Verify the local audit chain
+worldbisect doctor      Validate host capabilities and configuration
+worldbisect serve       Run the authenticated API and dashboard
+worldbisect version     Print version and build information
+worldbisectd            Run the persistent API and job worker daemon
+```
+
+Use `worldbisect help <command>` or the manpages for details.
+
+## Safety model
+
+WorldBisect runs user-selected commands. Treat captures, command output, workspace files, and imported bundles as untrusted data.
+
+- The local CLI runs commands only when explicitly requested.
+- Daemon remote execution is disabled by default.
+- Remote execution requires scoped bearer authentication, canonical absolute command paths, permitted working directories, and bounded quotas.
+- Executables and working directories are bound to opened file descriptors to prevent path replacement between authorization and execution.
+- Secret-looking environment variables are redacted and never become automatic causal factors.
+- Imported archives reject absolute paths, traversal, duplicate paths, links, devices, oversized entries, and malformed manifests.
+- A result is not `PROVEN` unless bidirectional intervention succeeds within the declared model.
+
+Read [`SECURITY.md`](SECURITY.md), [`docs/security.md`](docs/security.md), and [`docs/threat-model.md`](docs/threat-model.md).
+
+## Architecture
+
+WorldBisect is composed of:
+
+1. capture and observation;
+2. typed runtime-world comparison;
+3. bounded intervention planning;
+4. isolated experiment execution;
+5. deterministic minimization;
+6. causal proof verification;
+7. artifact, store, API, audit, and observability services.
+
+The architecture and trust boundaries are documented in [`docs/architecture.md`](docs/architecture.md) and the ADRs under [`docs/adr`](docs/adr).
+
+## API and dashboard
+
+Initialize a secure local daemon configuration:
+
+```bash
+sudo worldbisectd init \
+  --config /etc/worldbisect/config.json \
+  --data-dir /var/lib/worldbisect
+```
+
+The raw bearer token is displayed once. Only its SHA-256 hash is stored. Start the service with systemd or:
+
+```bash
+worldbisectd run --config /etc/worldbisect/config.json
+```
+
+The REST contract is defined in [`api/openapi.yaml`](api/openapi.yaml). The dashboard is embedded in the Go binary and requires an authenticated API session.
+
+## Development
+
+```bash
+make check
+make test-race
+make e2e
+make coverage
+```
+
+The project intentionally has no external Go module dependencies.
+
+## Releases and verification
+
+Official release artifacts include:
+
+- source archive;
+- static Linux AMD64 and ARM64 tarballs;
+- Debian packages;
+- SPDX SBOM;
+- `SHA256SUMS`;
+- GitHub artifact attestation.
+
+Verify checksums:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+Verify the GitHub attestation:
+
+```bash
+gh attestation verify <artifact> --repo ClusterPilot-System/worldbisect
+```
+
+## Open-source governance
+
+WorldBisect is licensed under Apache License 2.0. Contributions are welcome for defects, security, compatibility, documentation, and bounded maintenance of the 1.x contract.
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- [`GOVERNANCE.md`](GOVERNANCE.md)
+- [`SECURITY.md`](SECURITY.md)
+- [`PROVENANCE.md`](PROVENANCE.md)
+
+Security vulnerabilities must be reported privately through GitHub private vulnerability reporting.

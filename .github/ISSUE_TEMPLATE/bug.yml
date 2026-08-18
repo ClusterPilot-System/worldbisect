@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible defect in WorldBisect
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a defect. Do not include secrets, credentials, private captures, or customer data.
+  - type: input
+    id: version
+    attributes:
+      label: WorldBisect version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Architecture
+      options:
+        - linux/amd64
+        - linux/arm64
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Minimal commands and sanitized inputs needed to reproduce the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Sanitized output
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed secrets, tokens, personal data, and private capture contents.
+          required: true
+        - label: I searched existing issues before opening this report.
+          required: true

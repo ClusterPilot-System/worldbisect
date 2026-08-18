@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>WorldBisect</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Runtime causal analysis</p>
+      <h1>WorldBisect</h1>
+    </div>
+    <div class="actions">
+      <button id="refresh" type="button">Refresh</button>
+      <button id="logout" type="button">Forget token</button>
+    </div>
+  </header>
+
+  <main>
+    <p id="status" role="status">Enter a local API token.</p>
+
+    <section id="login" class="panel narrow">
+      <h2>Connect</h2>
+      <p>The token remains in this browser tab's session storage and is sent only to this origin.</p>
+      <form id="token-form">
+        <label for="token">Bearer token</label>
+        <input id="token" name="token" type="password" autocomplete="off" required>
+        <button type="submit">Open dashboard</button>
+      </form>
+    </section>
+
+    <div id="dashboard" hidden>
+      <section class="summary-grid">
+        <article><span>Version</span><strong id="version">—</strong></article>
+        <article><span>Captures</span><strong id="capture-count">0</strong></article>
+        <article><span>Analyses</span><strong id="analysis-count">0</strong></article>
+        <article><span>Jobs</span><strong id="job-count">0</strong></article>
+      </section>
+
+      <section class="panel">
+        <h2>Captures</h2>
+        <div class="table-wrap"><table id="captures"><thead><tr><th>ID</th><th>Label</th><th>Oracle</th><th>Created</th></tr></thead><tbody></tbody></table></div>
+      </section>
+
+      <section class="panel">
+        <h2>Analyses</h2>
+        <div class="table-wrap"><table id="analyses"><thead><tr><th>ID</th><th>Status</th><th>Factors</th><th>Created</th></tr></thead><tbody></tbody></table></div>
+      </section>
+
+      <section class="panel">
+        <h2>Jobs</h2>
+        <div class="table-wrap"><table id="jobs"><thead><tr><th>ID</th><th>Type</th><th>State</th><th>Updated</th></tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

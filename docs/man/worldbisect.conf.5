@@ -1,0 +1,12 @@
+.TH WORLDBISECT.CONF 5 "August 2026" "WorldBisect 1.0.0" "File Formats"
+.SH NAME
+worldbisect.conf \- WorldBisect daemon configuration
+.SH DESCRIPTION
+The configuration is a JSON document containing the listen address, data directory, token hashes and scopes, remote-execution policy, worker limits, retry and lease policy, and quotas.
+.PP
+Raw bearer tokens must never be stored in this file. Use worldbisectd init to generate an initial token and persist only its SHA-256 hash.
+.SH SECURITY
+The file should be owned by root or the dedicated WorldBisect service account and have mode 0600. Remote execution is disabled by default. Allowed commands must be canonical absolute executable paths.
+.SH SEE ALSO
+.BR worldbisectd (8),
+.BR worldbisect (1)

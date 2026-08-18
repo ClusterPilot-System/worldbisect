@@ -1,0 +1,43 @@
+name: Compatibility report
+description: Report a supported-platform compatibility defect
+title: "[Compatibility]: "
+labels: ["compatibility", "triage"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: WorldBisect version
+    validations:
+      required: true
+  - type: input
+    id: distribution
+    attributes:
+      label: Linux distribution and release
+      placeholder: Debian 13
+    validations:
+      required: true
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel version and architecture
+      placeholder: 6.x, amd64
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and result
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional sanitized details
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I removed credentials, secrets, personal data, and proprietary artifacts.
+          required: true

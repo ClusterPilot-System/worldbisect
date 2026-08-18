@@ -1,0 +1,30 @@
+# Build outputs
+/bin/
+/build/
+/dist/
+/coverage.out
+*.test
+*.prof
+
+# Runtime data
+.worldbisect/
+worldbisect-data/
+*.wcap
+*.wbc
+*.rpf
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Secrets and local configuration
+.env
+.env.*
+!configs/worldbisect.example.json
+*.pem
+*.key
+*.token

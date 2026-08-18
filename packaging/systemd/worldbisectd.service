@@ -1,0 +1,35 @@
+[Unit]
+Description=WorldBisect causal analysis daemon
+Documentation=https://github.com/ClusterPilot-System/worldbisect
+After=network.target
+
+[Service]
+Type=simple
+User=worldbisect
+Group=worldbisect
+ExecStart=/usr/sbin/worldbisectd run --config /etc/worldbisect/config.json
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=15s
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+UMask=0027
+ReadWritePaths=/var/lib/worldbisect
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+.TH WORLDBISECTD 8 "August 2026" "WorldBisect 1.0.0" "System Administration"
+.SH NAME
+worldbisectd \- authenticated WorldBisect API and job worker daemon
+.SH SYNOPSIS
+.B worldbisectd init
+.RI [ options ]
+.PP
+.B worldbisectd run
+.RI [ options ]
+.SH DESCRIPTION
+worldbisectd initializes secure local configuration and runs the HTTP API, embedded dashboard, audit service, and bounded persistent worker queue.
+.SH SECURITY
+The default listener is loopback-only and remote execution is disabled. Expose the daemon remotely only behind an independently managed TLS reverse proxy and network policy.
+.SH FILES
+.TP
+.I /etc/worldbisect/config.json
+Daemon configuration.
+.TP
+.I /var/lib/worldbisect
+Persistent data, signing keys, captures, analyses, jobs, traces, and audit records.
+.SH SEE ALSO
+.BR worldbisect (1),
+.BR worldbisect.conf (5)
