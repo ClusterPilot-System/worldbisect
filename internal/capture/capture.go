@@ -42,6 +42,14 @@ func New(dataStore *store.Store, commandRunner *runner.Runner) *Capturer {
 }
 
 func (capturer *Capturer) Capture(ctx context.Context, request Request) (*model.Capture, error) {
+	return capturer.capture(ctx, request, nil)
+}
+
+func (capturer *Capturer) CaptureWithBinding(ctx context.Context, request Request, binding *runner.ExecutionBinding) (*model.Capture, error) {
+	return capturer.capture(ctx, request, binding)
+}
+
+func (capturer *Capturer) capture(ctx context.Context, request Request, binding *runner.ExecutionBinding) (*model.Capture, error) {
 	limits := request.Limits.WithDefaults()
 	root, err := workspace.CanonicalRoot(request.Workspace)
 	if err != nil {
@@ -77,6 +85,7 @@ func (capturer *Capturer) Capture(ctx context.Context, request Request) (*model.
 		Timeout:        time.Duration(request.Command.TimeoutMS) * time.Millisecond,
 		MaxOutputBytes: limits.MaxOutputBytes,
 		Trace:          true,
+		Executable:     binding,
 	})
 	finished := time.Now().UTC()
 	after, scanErr := workspace.Scan(root, capturer.store, limits.MaxWorkspaceFiles, limits.MaxWorkspaceBytes)

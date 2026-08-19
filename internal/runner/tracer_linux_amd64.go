@@ -6,10 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"syscall"
 	"unsafe"
 )
+
+const syscallExecveAt = 322
 
 func nativeTracerAvailable() bool { return true }
 
@@ -104,7 +107,7 @@ func syscallPaths(pid int, registers syscall.PtraceRegs) []string {
 		return readPointerPaths(pid, uintptr(registers.Rsi))
 	case syscall.SYS_EXECVE, syscall.SYS_STAT, syscall.SYS_LSTAT, syscall.SYS_ACCESS, syscall.SYS_READLINK:
 		return readPointerPaths(pid, uintptr(registers.Rdi))
-	case syscall.SYS_EXECVEAT:
+	case syscallExecveAt:
 		return readPointerPaths(pid, uintptr(registers.Rsi))
 	default:
 		return nil

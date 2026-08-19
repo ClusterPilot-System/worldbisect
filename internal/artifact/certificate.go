@@ -1,6 +1,7 @@
 package artifact
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
@@ -97,7 +98,7 @@ func VerifyCertificate(path, publicKeyPath string) (VerificationResult, error) {
 		return VerificationResult{}, err
 	}
 	valid := ed25519.Verify(ed25519.PublicKey(publicKeyBytes), payload, signature)
-	result := VerificationResult{Valid: valid, AnalysisID: certificate.Payload.ID, Status: certificate.Payload.Status}
+	result := VerificationResult{Valid: valid, AnalysisID: certificate.Payload.ID, Status: string(certificate.Payload.Status)}
 	if !valid {
 		result.Error = "signature verification failed"
 	}
