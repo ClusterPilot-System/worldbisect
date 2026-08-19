@@ -44,17 +44,17 @@ type OracleResult struct {
 }
 
 type ProcessResult struct {
-	ExitCode       int      `json:"exit_code"`
-	Signal         string   `json:"signal,omitempty"`
-	TimedOut       bool     `json:"timed_out"`
-	StartedAt      time.Time `json:"started_at"`
-	FinishedAt     time.Time `json:"finished_at"`
-	DurationMS     int64    `json:"duration_ms"`
-	Stdout         string   `json:"stdout,omitempty"`
-	Stderr         string   `json:"stderr,omitempty"`
-	OutputTruncated bool    `json:"output_truncated"`
-	ConsultedPaths []string `json:"consulted_paths,omitempty"`
-	Boundaries     []string `json:"boundaries,omitempty"`
+	ExitCode        int       `json:"exit_code"`
+	Signal          string    `json:"signal,omitempty"`
+	TimedOut        bool      `json:"timed_out"`
+	StartedAt       time.Time `json:"started_at"`
+	FinishedAt      time.Time `json:"finished_at"`
+	DurationMS      int64     `json:"duration_ms"`
+	Stdout          string    `json:"stdout,omitempty"`
+	Stderr          string    `json:"stderr,omitempty"`
+	OutputTruncated bool      `json:"output_truncated"`
+	ConsultedPaths  []string  `json:"consulted_paths,omitempty"`
+	Boundaries      []string  `json:"boundaries,omitempty"`
 }
 
 type WorkspaceManifest struct {
@@ -144,16 +144,16 @@ type Factor struct {
 }
 
 type Experiment struct {
-	ID              string       `json:"id"`
-	Kind            string       `json:"kind"`
-	StartedAt       time.Time    `json:"started_at"`
-	FinishedAt      time.Time    `json:"finished_at"`
-	BaseCaptureID   string       `json:"base_capture_id"`
-	SourceCaptureID string       `json:"source_capture_id"`
-	FactorIDs       []string     `json:"factor_ids,omitempty"`
+	ID              string        `json:"id"`
+	Kind            string        `json:"kind"`
+	StartedAt       time.Time     `json:"started_at"`
+	FinishedAt      time.Time     `json:"finished_at"`
+	BaseCaptureID   string        `json:"base_capture_id"`
+	SourceCaptureID string        `json:"source_capture_id"`
+	FactorIDs       []string      `json:"factor_ids,omitempty"`
 	Result          ProcessResult `json:"result"`
-	OracleResult    OracleResult `json:"oracle_result"`
-	Error           string       `json:"error,omitempty"`
+	OracleResult    OracleResult  `json:"oracle_result"`
+	Error           string        `json:"error,omitempty"`
 }
 
 type Analysis struct {
@@ -194,13 +194,13 @@ type Job struct {
 }
 
 type IdempotencyRecord struct {
-	SchemaVersion          int       `json:"schema_version"`
-	PrincipalFingerprint   string    `json:"principal_fingerprint"`
-	Route                  string    `json:"route"`
-	Key                    string    `json:"key"`
-	RequestDigest          string    `json:"request_digest"`
-	JobID                  string    `json:"job_id"`
-	CreatedAt              time.Time `json:"created_at"`
+	SchemaVersion        int       `json:"schema_version"`
+	PrincipalFingerprint string    `json:"principal_fingerprint"`
+	Route                string    `json:"route"`
+	Key                  string    `json:"key"`
+	RequestDigest        string    `json:"request_digest"`
+	JobID                string    `json:"job_id"`
+	CreatedAt            time.Time `json:"created_at"`
 }
 
 type AuditEvent struct {

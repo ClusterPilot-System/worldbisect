@@ -10,8 +10,8 @@ import (
 
 func TestRunAndOutputLimit(t *testing.T) {
 	result, err := New().Run(context.Background(), Request{
-		Command: []string{"/bin/sh", "-c", "printf 1234567890"},
-		Timeout: time.Second,
+		Command:        []string{"/bin/sh", "-c", "printf 1234567890"},
+		Timeout:        time.Second,
 		MaxOutputBytes: 4,
 	})
 	if err != nil {
@@ -56,8 +56,8 @@ func TestBindingRejectsModifiedExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = New().Run(context.Background(), Request{
-		Command: []string{executable},
-		Timeout: time.Second,
+		Command:    []string{executable},
+		Timeout:    time.Second,
 		Executable: &ExecutionBinding{ExecutableFile: executableFile, DirectoryFile: directoryFile, ExecutablePath: executable, DirectoryPath: root, Identity: identity},
 	})
 	if err == nil {

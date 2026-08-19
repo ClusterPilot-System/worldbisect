@@ -36,15 +36,15 @@ type ExecutionBinding struct {
 }
 
 type FileIdentity struct {
-	Device     uint64
-	Inode      uint64
-	Size       int64
-	Mode       uint32
-	UID        uint32
-	GID        uint32
-	ModTimeNS  int64
-	ChangeNS   int64
-	Digest     string
+	Device    uint64
+	Inode     uint64
+	Size      int64
+	Mode      uint32
+	UID       uint32
+	GID       uint32
+	ModTimeNS int64
+	ChangeNS  int64
+	Digest    string
 }
 
 type Runner struct{}

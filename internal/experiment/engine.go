@@ -58,16 +58,16 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 
 	factors, boundaries := Compare(request.Good, request.Bad, request.MaxFactors)
 	analysis := &model.Analysis{
-		SchemaVersion:     3,
-		ID:                id.New("ana"),
-		CreatedAt:         time.Now().UTC(),
-		GoodCaptureID:     request.Good.ID,
-		BadCaptureID:      request.Bad.ID,
-		Factors:           factors,
-		Status:            model.StatusUnproven,
+		SchemaVersion:      3,
+		ID:                 id.New("ana"),
+		CreatedAt:          time.Now().UTC(),
+		GoodCaptureID:      request.Good.ID,
+		BadCaptureID:       request.Bad.ID,
+		Factors:            factors,
+		Status:             model.StatusUnproven,
 		EvidenceBoundaries: boundaries,
-		Repetitions:       request.Repetitions,
-		ExperimentBudget:  request.MaxExperiments,
+		Repetitions:        request.Repetitions,
+		ExperimentBudget:   request.MaxExperiments,
 	}
 
 	goodBaseline, err := engine.verifyBaseline(ctx, request.Good, request.Command, true, request.Repetitions, request.MaxOutputBytes)
@@ -246,13 +246,13 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 		Trace:          false,
 	})
 	record := model.Experiment{
-		ID:        id.New("exp"),
-		Kind:      kind,
-		StartedAt: start,
-		FinishedAt: time.Now().UTC(),
-		BaseCaptureID: base.ID,
+		ID:              id.New("exp"),
+		Kind:            kind,
+		StartedAt:       start,
+		FinishedAt:      time.Now().UTC(),
+		BaseCaptureID:   base.ID,
 		SourceCaptureID: source.ID,
-		FactorIDs: append([]string(nil), factorIDs...),
+		FactorIDs:       append([]string(nil), factorIDs...),
 	}
 	if result != nil {
 		record.Result = *result
@@ -293,9 +293,9 @@ func (engine *Engine) finish(analysis *model.Analysis, err error) (*model.Analys
 		return nil, saveErr
 	}
 	if auditErr := engine.store.AppendAudit("analysis", "analysis", analysis.ID, map[string]any{
-		"status":             analysis.Status,
-		"good_capture_id":    analysis.GoodCaptureID,
-		"bad_capture_id":     analysis.BadCaptureID,
+		"status":              analysis.Status,
+		"good_capture_id":     analysis.GoodCaptureID,
+		"bad_capture_id":      analysis.BadCaptureID,
 		"causal_factor_count": len(analysis.CausalFactors),
 	}); auditErr != nil {
 		return nil, auditErr

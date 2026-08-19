@@ -106,8 +106,8 @@ func TestWorkingDirectorySymlinkSwapDetected(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = service.runner.Run(context.Background(), runner.Request{
-		Command: []string{executable},
-		Timeout: time.Second,
+		Command:    []string{executable},
+		Timeout:    time.Second,
 		Executable: binding,
 	})
 	if err != nil {

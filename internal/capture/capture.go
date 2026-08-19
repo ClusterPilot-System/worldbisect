@@ -84,18 +84,18 @@ func (capturer *Capturer) Capture(ctx context.Context, request Request) (*model.
 		return nil, scanErr
 	}
 	captureValue := &model.Capture{
-		SchemaVersion: 3,
-		ID:            id.New("cap"),
-		CreatedAt:     finished,
-		StartedAt:     started,
-		FinishedAt:    finished,
-		Label:         request.Label,
-		WorkspaceRoot: root,
-		Command:       request.Command,
-		Oracle:        request.Oracle,
-		Before:        before,
-		Workspace:     after,
-		Host:          hostEvidence,
+		SchemaVersion:  3,
+		ID:             id.New("cap"),
+		CreatedAt:      finished,
+		StartedAt:      started,
+		FinishedAt:     finished,
+		Label:          request.Label,
+		WorkspaceRoot:  root,
+		Command:        request.Command,
+		Oracle:         request.Oracle,
+		Before:         before,
+		Workspace:      after,
+		Host:           hostEvidence,
 		SecretEvidence: secretEvidence,
 	}
 	if result != nil {

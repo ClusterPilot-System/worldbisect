@@ -163,9 +163,9 @@ func runCapture(args []string, stdout io.Writer) error {
 		Label:     *label,
 		Workspace: root,
 		Command: model.CommandSpec{
-			Arguments:  command,
-			Directory:  root,
-			TimeoutMS:  timeout.Milliseconds(),
+			Arguments:   command,
+			Directory:   root,
+			TimeoutMS:   timeout.Milliseconds(),
 			Environment: model.EnvironmentFromList(os.Environ()),
 		},
 		Oracle: parsedOracle,

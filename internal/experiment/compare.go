@@ -30,13 +30,13 @@ func Compare(good, bad *model.Capture, maxFactors int) ([]model.Factor, []string
 			continue
 		}
 		factors = append(factors, model.Factor{
-			ID:          model.FactorID("env", key),
-			Type:        model.FactorEnvironment,
-			Key:         key,
-			GoodPresent: goodExists,
-			BadPresent:  badExists,
-			GoodValue:   goodValue,
-			BadValue:    badValue,
+			ID:           model.FactorID("env", key),
+			Type:         model.FactorEnvironment,
+			Key:          key,
+			GoodPresent:  goodExists,
+			BadPresent:   badExists,
+			GoodValue:    goodValue,
+			BadValue:     badValue,
 			Intervenable: true,
 		})
 	}
