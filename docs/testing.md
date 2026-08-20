@@ -64,4 +64,7 @@ make coverage
 
 ## Architecture coverage
 
-ARM64 packages are cross-compiled and checked as AArch64 ELF. Runtime validation on real ARM64 hardware is required before claiming native ARM64 execution has been tested for a release.
+The required GitHub Actions `arm64-runtime` job runs the test suite, race detector,
+E2E flow, and packaged ARM64 binaries on a native `ubuntu-22.04-arm` runner.
+Local Windows development still does not provide native ARM64 validation; the
+repository must not claim ARM64 validation when that CI job is not green.
