@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -53,40 +53,25 @@ jobs:
           retention-days: 7
 
   arm64-runtime:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31d06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: false
-      - name: Install ARM64 emulator
+      - name: Test on native ARM64
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes qemu-user-static
-      - name: Build ARM64 release binaries
-        env:
-          GOOS: linux
-          GOARCH: arm64
-          CGO_ENABLED: "0"
-        run: |
-          go build -trimpath -buildvcs=false -o /tmp/worldbisect-arm64 ./cmd/worldbisect
-          go build -trimpath -buildvcs=false -o /tmp/worldbisectd-arm64 ./cmd/worldbisectd
-      - name: Execute ARM64 binaries under emulation
-        run: |
-          qemu-aarch64-static /tmp/worldbisect-arm64 version
-          qemu-aarch64-static /tmp/worldbisectd-arm64 version
-      - name: Compile all packages for ARM64
-        run: |
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build ./...
+          go test ./... -count=1
+          go test -race ./... -count=1
       - name: End-to-end on native ARM64
         env:
           WORLDBISECT_E2E_RACE: "1"
         run: timeout --foreground 120s ./scripts/e2e.sh
-      - name: Package and execute ARM64 release binary under emulation
+      - name: Package and execute ARM64 release binary
         run: |
           make release
           tmp="$(mktemp -d)"
@@ -94,5 +79,5 @@ jobs:
           archive="dist/worldbisect_$(cat VERSION)_linux_arm64.tar.gz"
           tar -xzf "$archive" -C "$tmp"
           root="$tmp/worldbisect_$(cat VERSION)_linux_arm64"
-          qemu-aarch64-static "$root/bin/worldbisect" version
-          qemu-aarch64-static "$root/bin/worldbisectd" version
+          "$root/bin/worldbisect" version
+          "$root/bin/worldbisectd" version
