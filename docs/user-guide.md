@@ -67,9 +67,20 @@ WorldBisect imports bundles when a path is supplied, compares the sessions, reru
 
 ## Result states
 
+The default text report is intended for normal operators. It presents the
+result first, explains the conclusion in plain language, and gives numbered
+next steps. Internal analysis and capture IDs remain at the bottom under
+`Technical details (for support)`.
+
 ### PROVEN
 
 The factor set passed repeated bad-to-good and good-to-bad intervention and was minimal within the tested model.
+
+For a workspace factor, follow the numbered steps in the report: back up the
+named path, compare it with the known-good workspace, restore only that factor,
+rerun the original command, and collect fresh captures if the problem remains.
+Do not treat the report as an automatic repair; the operator must review and
+approve the change.
 
 ### SUPPORTED
 

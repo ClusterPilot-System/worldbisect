@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"os/exec"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
 const syscallExecveAt = 322
+const traceWaitPollInterval = 10 * time.Millisecond
 
 func nativeTracerAvailable() bool { return true }
 
@@ -22,11 +24,21 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 		return nil, nil, err
 	}
 	pid := command.Process.Pid
+	stopOnCancel := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = syscall.Kill(-pid, syscall.SIGKILL)
+		case <-stopOnCancel:
+		}
+	}()
+	defer close(stopOnCancel)
 	var status syscall.WaitStatus
 	if _, err := syscall.Wait4(pid, &status, 0, nil); err != nil {
+		killAndReapTracees(pid, map[int]bool{pid: true})
 		return nil, nil, err
 	}
-	if err := syscall.PtraceSetOptions(pid, syscall.PTRACE_O_TRACESYSGOOD|syscall.PTRACE_O_TRACECLONE|syscall.PTRACE_O_TRACEFORK|syscall.PTRACE_O_TRACEVFORK); err != nil {
+	if err := syscall.PtraceSetOptions(pid, syscall.PTRACE_O_TRACESYSGOOD|syscall.PTRACE_O_TRACEEXEC|syscall.PTRACE_O_TRACECLONE|syscall.PTRACE_O_TRACEFORK|syscall.PTRACE_O_TRACEVFORK); err != nil {
 		_ = command.Process.Kill()
 		return nil, []string{"ptrace options unavailable"}, err
 	}
@@ -42,10 +54,7 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 	for len(processes) > 0 {
 		select {
 		case <-ctx.Done():
-			_ = syscall.Kill(-pid, syscall.SIGKILL)
-			for child := range processes {
-				_, _ = syscall.Wait4(child, nil, 0, nil)
-			}
+			killAndReapTracees(pid, processes)
 			return paths, nil, ctx.Err()
 		default:
 		}
@@ -67,7 +76,11 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 		}
 		if waitStatus.Stopped() {
 			signal := waitStatus.StopSignal()
-			if signal == syscall.SIGTRAP|0x80 {
+			if signal == syscall.SIGSTOP {
+				// Newly traced children report an initial SIGSTOP. Re-delivering
+				// it would leave the child stopped forever.
+				signal = 0
+			} else if signal == syscall.SIGTRAP|0x80 {
 				if !inSyscall[waited] {
 					var registers syscall.PtraceRegs
 					if err := syscall.PtraceGetRegs(waited, &registers); err == nil {
@@ -91,6 +104,9 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 			}
 		}
 	}
+	if ctx.Err() != nil {
+		return paths, nil, ctx.Err()
+	}
 	if !mainPidSeen {
 		return paths, nil, nil
 	}
@@ -104,6 +120,23 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 		return paths, nil, tracedExitError{code: -1, signal: mainStatus.Signal().String()}
 	}
 	return paths, nil, nil
+}
+
+func killAndReapTracees(pid int, processes map[int]bool) {
+	_ = syscall.Kill(-pid, syscall.SIGKILL)
+	deadline := time.Now().Add(time.Second)
+	for len(processes) > 0 && time.Now().Before(deadline) {
+		var status syscall.WaitStatus
+		waited, err := syscall.Wait4(-1, &status, syscall.WALL|syscall.WNOHANG, nil)
+		if waited != 0 {
+			delete(processes, waited)
+			continue
+		}
+		if err != nil && errors.Is(err, syscall.ECHILD) {
+			return
+		}
+		time.Sleep(traceWaitPollInterval)
+	}
 }
 
 func syscallPaths(pid int, registers syscall.PtraceRegs) []string {

@@ -97,12 +97,27 @@ worldbisect compare \
   -- ./check.sh
 ```
 
-Expected conclusion:
+Expected conclusion for a normal user:
 
 ```text
-status: PROVEN
-factor: workspace file config.txt
+WorldBisect diagnosis
+=====================
+result: PROVEN — cause confirmed
+
+Detected cause:
+- workspace file "config.txt" differs between the successful and failing run
+
+Next steps:
+1. Make a backup of "config.txt" before editing or replacing it.
+2. Open "config.txt" in the failing workspace and compare it with the known-good copy.
+3. Restore or correct "config.txt" so it matches the known-good configuration.
+4. Run the original command again and confirm that the oracle passes.
 ```
+
+The text report is written for operators who need an actionable answer. It
+also includes a proof explanation, evidence boundaries, and technical IDs for
+support. Use `--format json` when a machine needs the stable structured
+contract instead of the human-readable report.
 
 ## Commands
 
