@@ -51,3 +51,33 @@ jobs:
             coverage.out
           if-no-files-found: ignore
           retention-days: 7
+
+  arm64-runtime:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31d06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Test on native ARM64
+        run: |
+          go test ./... -count=1
+          go test -race ./... -count=1
+      - name: End-to-end on native ARM64
+        env:
+          WORLDBISECT_E2E_RACE: "1"
+        run: timeout --foreground 120s ./scripts/e2e.sh
+      - name: Package and execute ARM64 release binary
+        run: |
+          make release
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          archive="dist/worldbisect_$(cat VERSION)_linux_arm64.tar.gz"
+          tar -xzf "$archive" -C "$tmp"
+          root="$tmp/worldbisect_$(cat VERSION)_linux_arm64"
+          "$root/bin/worldbisect" version
+          "$root/bin/worldbisectd" version
