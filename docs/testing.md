@@ -65,6 +65,6 @@ make coverage
 ## Architecture coverage
 
 The required GitHub Actions `arm64-runtime` job runs the test suite, race detector,
-E2E flow, and packaged ARM64 binaries on a native `ubuntu-24.04-arm` runner.
+E2E flow, and packaged ARM64 binaries on a native `ubuntu-22.04-arm` runner.
 Local Windows development still does not provide native ARM64 validation; the
 repository must not claim ARM64 validation when that CI job is not green.
