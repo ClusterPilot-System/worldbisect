@@ -64,7 +64,8 @@ func (runner *Runner) Run(ctx context.Context, request Request) (*model.ProcessR
 	if request.MaxOutputBytes <= 0 {
 		request.MaxOutputBytes = 8 << 20
 	}
-	ctx, cancel := context.WithTimeout(ctx, request.Timeout)
+	parentCtx := ctx
+	ctx, cancel := context.WithTimeout(parentCtx, request.Timeout)
 	defer cancel()
 
 	commandPath := request.Command[0]
@@ -80,18 +81,22 @@ func (runner *Runner) Run(ctx context.Context, request Request) (*model.ProcessR
 		directory = fmt.Sprintf("/proc/self/fd/%d", request.Executable.DirectoryFile.Fd())
 	}
 
-	command := exec.Command(commandPath, request.Command[1:]...)
-	command.Dir = directory
-	command.Env = request.Environment
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	if request.Executable != nil {
-		command.ExtraFiles = []*os.File{request.Executable.ExecutableFile, request.Executable.DirectoryFile}
+	newCommand := func() (*exec.Cmd, *limitedBuffer, *limitedBuffer) {
+		command := exec.Command(commandPath, request.Command[1:]...)
+		command.Dir = directory
+		command.Env = request.Environment
+		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		if request.Executable != nil {
+			command.ExtraFiles = []*os.File{request.Executable.ExecutableFile, request.Executable.DirectoryFile}
+		}
+		stdout := newLimitedBuffer(request.MaxOutputBytes)
+		stderr := newLimitedBuffer(request.MaxOutputBytes)
+		command.Stdout = stdout
+		command.Stderr = stderr
+		return command, stdout, stderr
 	}
 
-	stdout := newLimitedBuffer(request.MaxOutputBytes)
-	stderr := newLimitedBuffer(request.MaxOutputBytes)
-	command.Stdout = stdout
-	command.Stderr = stderr
+	command, stdout, stderr := newCommand()
 	started := time.Now().UTC()
 
 	var consulted []string
@@ -99,6 +104,14 @@ func (runner *Runner) Run(ctx context.Context, request Request) (*model.ProcessR
 	var runErr error
 	if request.Trace && nativeTracerAvailable() && !raceEnabled {
 		consulted, boundaries, runErr = runTraced(ctx, command)
+		var tracedExit tracedExitError
+		if runErr != nil && !errors.As(runErr, &tracedExit) {
+			boundaries = append(boundaries, "native syscall tracing failed; basic capture rerun used: "+runErr.Error())
+			fallbackCtx, fallbackCancel := context.WithTimeout(parentCtx, request.Timeout)
+			command, stdout, stderr = newCommand()
+			consulted, runErr = nil, startAndWait(fallbackCtx, command)
+			fallbackCancel()
+		}
 	} else {
 		if request.Trace {
 			boundaries = append(boundaries, "native syscall tracing unavailable; basic capture used")
@@ -109,7 +122,7 @@ func (runner *Runner) Run(ctx context.Context, request Request) (*model.ProcessR
 	result := &model.ProcessResult{
 		ExitCode:        exitCode(runErr),
 		Signal:          signalName(runErr),
-		TimedOut:        errors.Is(ctx.Err(), context.DeadlineExceeded),
+		TimedOut:        errors.Is(runErr, context.DeadlineExceeded),
 		StartedAt:       started,
 		FinishedAt:      finished,
 		DurationMS:      finished.Sub(started).Milliseconds(),

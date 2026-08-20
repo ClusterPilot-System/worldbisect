@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -29,6 +30,26 @@ func TestTimeoutKillsProcessGroup(t *testing.T) {
 	})
 	if err == nil || !result.TimedOut {
 		t.Fatalf("expected timeout: result=%+v err=%v", result, err)
+	}
+}
+
+func TestTracedTimeoutDoesNotBlockOnWait(t *testing.T) {
+	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
+		t.Skip("native tracer is only available on Linux AMD64")
+	}
+	result, err := New().Run(context.Background(), Request{
+		Command:        []string{"/bin/sh", "-c", "while :; do :; done"},
+		Timeout:        50 * time.Millisecond,
+		MaxOutputBytes: 1024,
+		Trace:          true,
+	})
+	for _, boundary := range result.Boundaries {
+		if boundary == "ptrace options unavailable" {
+			t.Skip("ptrace is unavailable in this Linux environment")
+		}
+	}
+	if err == nil || !result.TimedOut {
+		t.Fatalf("expected traced timeout: result=%+v err=%v", result, err)
 	}
 }
 
