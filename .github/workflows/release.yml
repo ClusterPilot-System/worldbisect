@@ -52,6 +52,8 @@ jobs:
           test "$(cat VERSION)" = "${version}"
           printf 'tag=%s\nversion=%s\n' "$tag" "$version" >> "$GITHUB_OUTPUT"
       - name: Validate
+        env:
+          WORLDBISECT_E2E_RACE: "1"
         run: |
           make check
           make test-race

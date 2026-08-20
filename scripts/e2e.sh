@@ -11,6 +11,11 @@ bad="$work/bad"
 imported="$work/imported"
 mkdir -p "$good" "$bad" "$imported"
 
+build_flags=()
+if [[ "${WORLDBISECT_E2E_RACE:-0}" == "1" ]]; then
+  build_flags=(-race)
+fi
+
 cat > "$good/check.sh" <<'SH'
 #!/bin/sh
 set -eu
@@ -22,8 +27,8 @@ printf 'mode=good\n' > "$good/config.txt"
 printf 'mode=bad\n' > "$bad/config.txt"
 
 mkdir -p "$work/bin"
-go build -o "$work/bin/worldbisect" ./cmd/worldbisect
-go build -o "$work/bin/worldbisectd" ./cmd/worldbisectd
+go build "${build_flags[@]}" -o "$work/bin/worldbisect" ./cmd/worldbisect
+go build "${build_flags[@]}" -o "$work/bin/worldbisectd" ./cmd/worldbisectd
 
 "$work/bin/worldbisect" capture --store "$store" --workspace "$good" --oracle exit=0 --output "$work/good.wcap" -- ./check.sh > "$work/good.out"
 if "$work/bin/worldbisect" capture --store "$store" --workspace "$bad" --oracle exit=0 --output "$work/bad.wcap" -- ./check.sh > "$work/bad.out" 2> "$work/bad.err"; then

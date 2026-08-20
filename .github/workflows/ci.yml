@@ -36,7 +36,9 @@ jobs:
       - name: Race detector
         run: go test -race ./... -count=1
       - name: End-to-end
-        run: make e2e
+        env:
+          WORLDBISECT_E2E_RACE: "1"
+        run: timeout --foreground 120s ./scripts/e2e.sh
       - name: Release gate
         run: make check
       - name: Upload test artifacts
