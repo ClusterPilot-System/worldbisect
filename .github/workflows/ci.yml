@@ -53,7 +53,7 @@ jobs:
           retention-days: 7
 
   arm64-runtime:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Checkout
@@ -63,15 +63,30 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - name: Test on native ARM64
+      - name: Install ARM64 emulator
         run: |
-          go test ./... -count=1
-          go test -race ./... -count=1
+          sudo apt-get update
+          sudo apt-get install --yes qemu-user-static
+      - name: Build ARM64 release binaries
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath -buildvcs=false -o /tmp/worldbisect-arm64 ./cmd/worldbisect
+          go build -trimpath -buildvcs=false -o /tmp/worldbisectd-arm64 ./cmd/worldbisectd
+      - name: Execute ARM64 binaries under emulation
+        run: |
+          qemu-aarch64-static /tmp/worldbisect-arm64 version
+          qemu-aarch64-static /tmp/worldbisectd-arm64 version
+      - name: Compile all packages for ARM64
+        run: |
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build ./...
       - name: End-to-end on native ARM64
         env:
           WORLDBISECT_E2E_RACE: "1"
         run: timeout --foreground 120s ./scripts/e2e.sh
-      - name: Package and execute ARM64 release binary
+      - name: Package and execute ARM64 release binary under emulation
         run: |
           make release
           tmp="$(mktemp -d)"
@@ -79,5 +94,5 @@ jobs:
           archive="dist/worldbisect_$(cat VERSION)_linux_arm64.tar.gz"
           tar -xzf "$archive" -C "$tmp"
           root="$tmp/worldbisect_$(cat VERSION)_linux_arm64"
-          "$root/bin/worldbisect" version
-          "$root/bin/worldbisectd" version
+          qemu-aarch64-static "$root/bin/worldbisect" version
+          qemu-aarch64-static "$root/bin/worldbisectd" version
