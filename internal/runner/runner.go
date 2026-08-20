@@ -73,7 +73,10 @@ func (runner *Runner) Run(ctx context.Context, request Request) (*model.ProcessR
 		if err := validateBinding(request.Executable); err != nil {
 			return nil, err
 		}
-		commandPath = fmt.Sprintf("/proc/self/fd/%d", request.Executable.ExecutableFile.Fd())
+		// ExtraFiles gives the executable a non-CLOEXEC descriptor 3 for
+		// interpreter-backed scripts. The original directory descriptor remains
+		// available while the child performs chdir before exec.
+		commandPath = "/proc/self/fd/3"
 		directory = fmt.Sprintf("/proc/self/fd/%d", request.Executable.DirectoryFile.Fd())
 	}
 
@@ -83,13 +86,6 @@ func (runner *Runner) Run(ctx context.Context, request Request) (*model.ProcessR
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if request.Executable != nil {
 		command.ExtraFiles = []*os.File{request.Executable.ExecutableFile, request.Executable.DirectoryFile}
-		commandPath = "/proc/self/fd/3"
-		directory = "/proc/self/fd/4"
-		command = exec.Command(commandPath, request.Command[1:]...)
-		command.Dir = directory
-		command.Env = request.Environment
-		command.ExtraFiles = []*os.File{request.Executable.ExecutableFile, request.Executable.DirectoryFile}
-		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	}
 
 	stdout := newLimitedBuffer(request.MaxOutputBytes)
@@ -158,6 +154,10 @@ func exitCode(err error) int {
 	if err == nil {
 		return 0
 	}
+	var code interface{ ExitCode() int }
+	if errors.As(err, &code) {
+		return code.ExitCode()
+	}
 	var exitError *exec.ExitError
 	if errors.As(err, &exitError) {
 		return exitError.ExitCode()
@@ -166,6 +166,10 @@ func exitCode(err error) int {
 }
 
 func signalName(err error) string {
+	var signal interface{ Signal() string }
+	if errors.As(err, &signal) {
+		return signal.Signal()
+	}
 	var exitError *exec.ExitError
 	if errors.As(err, &exitError) {
 		if status, ok := exitError.Sys().(syscall.WaitStatus); ok && status.Signaled() {
@@ -173,6 +177,26 @@ func signalName(err error) string {
 		}
 	}
 	return ""
+}
+
+type tracedExitError struct {
+	code   int
+	signal string
+}
+
+func (err tracedExitError) Error() string {
+	if err.signal != "" {
+		return "process terminated by " + err.signal
+	}
+	return fmt.Sprintf("process exited with code %d", err.code)
+}
+
+func (err tracedExitError) ExitCode() int {
+	return err.code
+}
+
+func (err tracedExitError) Signal() string {
+	return err.signal
 }
 
 type limitedBuffer struct {

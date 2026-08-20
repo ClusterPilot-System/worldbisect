@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"syscall"
 	"unsafe"
@@ -38,6 +37,8 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 	paths := []string{}
 	inSyscall := make(map[int]bool)
 	processes := map[int]bool{pid: true}
+	var mainStatus syscall.WaitStatus
+	mainPidSeen := false
 	for len(processes) > 0 {
 		select {
 		case <-ctx.Done():
@@ -57,6 +58,10 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 			return paths, nil, err
 		}
 		if waitStatus.Exited() || waitStatus.Signaled() {
+			if waited == pid {
+				mainStatus = waitStatus
+				mainPidSeen = true
+			}
 			delete(processes, waited)
 			continue
 		}
@@ -86,15 +91,17 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 			}
 		}
 	}
-	state, err := command.Process.Wait()
-	if err != nil {
-		if _, ok := err.(*os.PathError); ok {
-			return paths, nil, nil
-		}
-		return paths, nil, err
+	if !mainPidSeen {
+		return paths, nil, nil
 	}
-	if !state.Success() {
-		return paths, nil, &exec.ExitError{ProcessState: state}
+	if mainStatus.Exited() {
+		if code := mainStatus.ExitStatus(); code != 0 {
+			return paths, nil, tracedExitError{code: code}
+		}
+		return paths, nil, nil
+	}
+	if mainStatus.Signaled() {
+		return paths, nil, tracedExitError{code: -1, signal: mainStatus.Signal().String()}
 	}
 	return paths, nil, nil
 }
