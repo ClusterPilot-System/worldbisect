@@ -21,7 +21,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  arm64-runtime:
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Validate ARM64 release runtime
+        env:
+          WORLDBISECT_E2E_RACE: "1"
+        run: |
+          make test-race
+          make e2e
+          make release
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          archive="dist/worldbisect_$(cat VERSION)_linux_arm64.tar.gz"
+          tar -xzf "$archive" -C "$tmp"
+          root="$tmp/worldbisect_$(cat VERSION)_linux_arm64"
+          "$root/bin/worldbisect" version
+          "$root/bin/worldbisectd" version
+
   release:
+    needs: arm64-runtime
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
