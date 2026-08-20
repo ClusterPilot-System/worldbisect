@@ -11,6 +11,8 @@ import (
 	"unsafe"
 )
 
+const syscallExecveAt = 322
+
 func nativeTracerAvailable() bool { return true }
 
 func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, error) {
@@ -35,6 +37,8 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 	paths := []string{}
 	inSyscall := make(map[int]bool)
 	processes := map[int]bool{pid: true}
+	var mainStatus syscall.WaitStatus
+	mainPidSeen := false
 	for len(processes) > 0 {
 		select {
 		case <-ctx.Done():
@@ -54,6 +58,10 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 			return paths, nil, err
 		}
 		if waitStatus.Exited() || waitStatus.Signaled() {
+			if waited == pid {
+				mainStatus = waitStatus
+				mainPidSeen = true
+			}
 			delete(processes, waited)
 			continue
 		}
@@ -83,15 +91,17 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 			}
 		}
 	}
-	state, err := command.Process.Wait()
-	if err != nil {
-		if _, ok := err.(*os.PathError); ok {
-			return paths, nil, nil
-		}
-		return paths, nil, err
+	if !mainPidSeen {
+		return paths, nil, nil
 	}
-	if !state.Success() {
-		return paths, nil, &exec.ExitError{ProcessState: state}
+	if mainStatus.Exited() {
+		if code := mainStatus.ExitStatus(); code != 0 {
+			return paths, nil, tracedExitError{code: code}
+		}
+		return paths, nil, nil
+	}
+	if mainStatus.Signaled() {
+		return paths, nil, tracedExitError{code: -1, signal: mainStatus.Signal().String()}
 	}
 	return paths, nil, nil
 }
@@ -104,7 +114,7 @@ func syscallPaths(pid int, registers syscall.PtraceRegs) []string {
 		return readPointerPaths(pid, uintptr(registers.Rsi))
 	case syscall.SYS_EXECVE, syscall.SYS_STAT, syscall.SYS_LSTAT, syscall.SYS_ACCESS, syscall.SYS_READLINK:
 		return readPointerPaths(pid, uintptr(registers.Rdi))
-	case syscall.SYS_EXECVEAT:
+	case syscallExecveAt:
 		return readPointerPaths(pid, uintptr(registers.Rsi))
 	default:
 		return nil

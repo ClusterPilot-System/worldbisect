@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 func EnvironmentFromList(values []string) map[string]string {
@@ -51,7 +52,9 @@ func IsRedactedValue(value string) bool {
 }
 
 func (captureValue *Capture) Normalize() {
-	sort.Slice(captureValue.Workspace.Entries, func(i, j int) bool { return captureValue.Workspace.Entries[i].Path < captureValue.Workspace.Entries[j].Path })
+	sort.Slice(captureValue.Workspace.Entries, func(i, j int) bool {
+		return captureValue.Workspace.Entries[i].Path < captureValue.Workspace.Entries[j].Path
+	})
 	sort.Slice(captureValue.Before.Entries, func(i, j int) bool { return captureValue.Before.Entries[i].Path < captureValue.Before.Entries[j].Path })
 	sort.Slice(captureValue.ConsultedPaths, func(i, j int) bool { return captureValue.ConsultedPaths[i].Path < captureValue.ConsultedPaths[j].Path })
 	sort.Strings(captureValue.EvidenceBoundaries)

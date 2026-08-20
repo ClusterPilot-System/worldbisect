@@ -33,11 +33,11 @@ type schemaFile struct {
 }
 
 type CreateJobRequest struct {
-	Job                    model.Job
-	PrincipalFingerprint   string
-	Route                  string
-	IdempotencyKey         string
-	RequestDigest          string
+	Job                  model.Job
+	PrincipalFingerprint string
+	Route                string
+	IdempotencyKey       string
+	RequestDigest        string
 }
 
 func Open(root string) (*Store, error) {

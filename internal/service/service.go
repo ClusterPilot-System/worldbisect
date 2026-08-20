@@ -23,10 +23,10 @@ import (
 )
 
 type Service struct {
-	cfg     config.Config
-	store   *store.Store
-	runner  *runner.Runner
-	jobs    *jobs.Manager
+	cfg    config.Config
+	store  *store.Store
+	runner *runner.Runner
+	jobs   *jobs.Manager
 }
 
 type Error struct {
@@ -139,13 +139,13 @@ func (service *Service) handleAnalysis(ctx context.Context, job *model.Job) (str
 		return "", err
 	}
 	analysis, err := experiment.New(service.store, service.runner).Analyze(ctx, experiment.Request{
-		Good:            good,
-		Bad:             bad,
-		Command:         bad.Command.Arguments,
-		Repetitions:     request.Repetitions,
-		MaxFactors:      service.cfg.Quotas.MaxFactors,
-		MaxExperiments:  service.cfg.Quotas.MaxExperiments,
-		MaxOutputBytes:  service.cfg.Quotas.MaxOutputBytes,
+		Good:           good,
+		Bad:            bad,
+		Command:        bad.Command.Arguments,
+		Repetitions:    request.Repetitions,
+		MaxFactors:     service.cfg.Quotas.MaxFactors,
+		MaxExperiments: service.cfg.Quotas.MaxExperiments,
+		MaxOutputBytes: service.cfg.Quotas.MaxOutputBytes,
 	})
 	if analysis == nil {
 		return "", err

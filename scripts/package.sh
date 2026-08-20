@@ -43,7 +43,6 @@ for arch in amd64 arm64; do
       "$debroot/usr/lib/tmpfiles.d" "$debroot/usr/lib/sysusers.d" "$debroot/etc/worldbisect"
     chmod 0755 "$debroot/DEBIAN"
     sed -e "s/@VERSION@/$VERSION/g" -e "s/@ARCH@/$arch/g" packaging/debian/control > "$debroot/DEBIAN/control"
-    cp packaging/debian/conffiles "$debroot/DEBIAN/conffiles"
     cp packaging/debian/postinst "$debroot/DEBIAN/postinst"
     chmod 0755 "$debroot/DEBIAN/postinst"
     cp "$stage/bin/worldbisect" "$debroot/usr/bin/worldbisect"
@@ -61,7 +60,7 @@ for arch in amd64 arm64; do
     find "$debroot" -type d -exec chmod 0755 {} +
     find "$debroot" -type d -exec chmod g-s {} +
     chmod 0755 "$debroot/DEBIAN/postinst" "$debroot/usr/bin/worldbisect" "$debroot/usr/sbin/worldbisectd"
-    chmod 0644 "$debroot/DEBIAN/control" "$debroot/DEBIAN/conffiles"
+    chmod 0644 "$debroot/DEBIAN/control"
     dpkg-deb --root-owner-group --build "$debroot" "$DIST/worldbisect_${VERSION}_linux_${arch}.deb" >/dev/null
     rm -rf "$debroot"
   fi

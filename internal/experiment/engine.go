@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -58,16 +57,16 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 
 	factors, boundaries := Compare(request.Good, request.Bad, request.MaxFactors)
 	analysis := &model.Analysis{
-		SchemaVersion:     3,
-		ID:                id.New("ana"),
-		CreatedAt:         time.Now().UTC(),
-		GoodCaptureID:     request.Good.ID,
-		BadCaptureID:      request.Bad.ID,
-		Factors:           factors,
-		Status:            model.StatusUnproven,
+		SchemaVersion:      3,
+		ID:                 id.New("ana"),
+		CreatedAt:          time.Now().UTC(),
+		GoodCaptureID:      request.Good.ID,
+		BadCaptureID:       request.Bad.ID,
+		Factors:            factors,
+		Status:             model.StatusUnproven,
 		EvidenceBoundaries: boundaries,
-		Repetitions:       request.Repetitions,
-		ExperimentBudget:  request.MaxExperiments,
+		Repetitions:        request.Repetitions,
+		ExperimentBudget:   request.MaxExperiments,
 	}
 
 	goodBaseline, err := engine.verifyBaseline(ctx, request.Good, request.Command, true, request.Repetitions, request.MaxOutputBytes)
@@ -100,7 +99,7 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 	}
 
 	minimized, used, minimizeErr := DDMin(allIDs, experimentsRemaining, func(candidate []string) (bool, error) {
-		records, passes, err := engine.runIntervention(ctx, request.Bad, request.Good, request.Command, candidate, factorByID, request.Repetitions, true, request.MaxOutputBytes)
+		records, passes, err := engine.runIntervention(ctx, request.Bad, request.Good, request.Good.ID, request.Command, candidate, factorByID, request.Repetitions, true, request.MaxOutputBytes)
 		analysis.Experiments = append(analysis.Experiments, records...)
 		return passes, err
 	})
@@ -118,7 +117,7 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 		analysis.Limitations = append(analysis.Limitations, "experiment budget does not permit reverse verification")
 		return engine.finish(analysis, nil)
 	}
-	reverseRecords, reversePasses, err := engine.runIntervention(ctx, request.Good, request.Bad, request.Command, minimized, factorByID, request.Repetitions, false, request.MaxOutputBytes)
+	reverseRecords, reversePasses, err := engine.runIntervention(ctx, request.Good, request.Bad, request.Good.ID, request.Command, minimized, factorByID, request.Repetitions, false, request.MaxOutputBytes)
 	analysis.Experiments = append(analysis.Experiments, reverseRecords...)
 	if err != nil {
 		analysis.Limitations = append(analysis.Limitations, "reverse verification failed: "+err.Error())
@@ -158,7 +157,7 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 func (engine *Engine) verifyBaseline(ctx context.Context, captureValue *model.Capture, command []string, expected bool, repetitions int, maxOutput int64) ([]model.Experiment, error) {
 	records := make([]model.Experiment, 0, repetitions)
 	for index := 0; index < repetitions; index++ {
-		record, passed, err := engine.runWorld(ctx, captureValue, captureValue, command, nil, nil, maxOutput, "baseline")
+		record, passed, err := engine.runWorld(ctx, captureValue, captureValue, captureValue.ID, command, nil, nil, maxOutput, "baseline")
 		records = append(records, record)
 		if err != nil {
 			return records, err
@@ -170,14 +169,14 @@ func (engine *Engine) verifyBaseline(ctx context.Context, captureValue *model.Ca
 	return records, nil
 }
 
-func (engine *Engine) runIntervention(ctx context.Context, base, source *model.Capture, command, factorIDs []string, factors map[string]model.Factor, repetitions int, expected bool, maxOutput int64) ([]model.Experiment, bool, error) {
+func (engine *Engine) runIntervention(ctx context.Context, base, source *model.Capture, goodCaptureID string, command, factorIDs []string, factors map[string]model.Factor, repetitions int, expected bool, maxOutput int64) ([]model.Experiment, bool, error) {
 	selected := make([]model.Factor, 0, len(factorIDs))
 	for _, identifier := range factorIDs {
 		selected = append(selected, factors[identifier])
 	}
 	results := make([]model.Experiment, 0, repetitions)
 	for index := 0; index < repetitions; index++ {
-		record, passed, err := engine.runWorld(ctx, base, source, command, selected, factorIDs, maxOutput, "intervention")
+		record, passed, err := engine.runWorld(ctx, base, source, goodCaptureID, command, selected, factorIDs, maxOutput, "intervention")
 		results = append(results, record)
 		if err != nil {
 			return results, false, err
@@ -189,7 +188,7 @@ func (engine *Engine) runIntervention(ctx context.Context, base, source *model.C
 	return results, true, nil
 }
 
-func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture, command []string, selected []model.Factor, factorIDs []string, maxOutput int64, kind string) (model.Experiment, bool, error) {
+func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture, goodCaptureID string, command []string, selected []model.Factor, factorIDs []string, maxOutput int64, kind string) (model.Experiment, bool, error) {
 	root, err := os.MkdirTemp("", "worldbisect-experiment-")
 	if err != nil {
 		return model.Experiment{}, false, err
@@ -200,26 +199,12 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 	}
 	environment := copyMap(base.Command.Environment)
 	for _, factor := range selected {
+		useGood := base.ID != goodCaptureID
 		switch factor.Type {
 		case model.FactorEnvironment:
-			if source.ID == base.ID {
-				continue
-			}
-			present, value := sourceEnvironment(factor, source == nil || source.ID == "")
-			if source.ID == source.ID {
-				if source.ID == base.ID {
-					present, value = factor.BadPresent, factor.BadValue
-				}
-			}
-			if base.ID == factorOwnerID(base, factor, true) {
+			present, value := factor.BadPresent, factor.BadValue
+			if useGood {
 				present, value = factor.GoodPresent, factor.GoodValue
-			}
-			if source.ID != base.ID {
-				if source.ID == factorOwnerID(source, factor, true) {
-					present, value = factor.GoodPresent, factor.GoodValue
-				} else {
-					present, value = factor.BadPresent, factor.BadValue
-				}
 			}
 			if present {
 				environment[factor.Key] = value
@@ -228,7 +213,7 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 			}
 		case model.FactorWorkspace:
 			entry, present := factor.BadEntry, factor.BadPresent
-			if source.ID == factorOwnerID(source, factor, true) {
+			if useGood {
 				entry, present = factor.GoodEntry, factor.GoodPresent
 			}
 			if err := workspace.Apply(root, factor.Key, entry, present, engine.store); err != nil {
@@ -246,13 +231,13 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 		Trace:          false,
 	})
 	record := model.Experiment{
-		ID:        id.New("exp"),
-		Kind:      kind,
-		StartedAt: start,
-		FinishedAt: time.Now().UTC(),
-		BaseCaptureID: base.ID,
+		ID:              id.New("exp"),
+		Kind:            kind,
+		StartedAt:       start,
+		FinishedAt:      time.Now().UTC(),
+		BaseCaptureID:   base.ID,
 		SourceCaptureID: source.ID,
-		FactorIDs: append([]string(nil), factorIDs...),
+		FactorIDs:       append([]string(nil), factorIDs...),
 	}
 	if result != nil {
 		record.Result = *result
@@ -260,8 +245,14 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 	}
 	if runErr != nil {
 		record.Error = runErr.Error()
+		// A process exit, signal, or timeout is an observed outcome. It must
+		// still be evaluated by the oracle; only failures that produced no
+		// process result are execution errors.
+		if result == nil {
+			return record, false, runErr
+		}
 	}
-	return record, record.OracleResult.Passed, runErr
+	return record, record.OracleResult.Passed, nil
 }
 
 func (engine *Engine) verifyMinimality(ctx context.Context, request Request, minimized []string, factors map[string]model.Factor) (bool, []model.Experiment, error) {
@@ -275,7 +266,7 @@ func (engine *Engine) verifyMinimality(ctx context.Context, request Request, min
 		if len(subset) == 0 {
 			continue
 		}
-		trial, passes, err := engine.runIntervention(ctx, request.Bad, request.Good, request.Command, subset, factors, request.Repetitions, true, request.MaxOutputBytes)
+		trial, passes, err := engine.runIntervention(ctx, request.Bad, request.Good, request.Good.ID, request.Command, subset, factors, request.Repetitions, true, request.MaxOutputBytes)
 		records = append(records, trial...)
 		if err != nil {
 			return false, records, err
@@ -293,9 +284,9 @@ func (engine *Engine) finish(analysis *model.Analysis, err error) (*model.Analys
 		return nil, saveErr
 	}
 	if auditErr := engine.store.AppendAudit("analysis", "analysis", analysis.ID, map[string]any{
-		"status":             analysis.Status,
-		"good_capture_id":    analysis.GoodCaptureID,
-		"bad_capture_id":     analysis.BadCaptureID,
+		"status":              analysis.Status,
+		"good_capture_id":     analysis.GoodCaptureID,
+		"bad_capture_id":      analysis.BadCaptureID,
 		"causal_factor_count": len(analysis.CausalFactors),
 	}); auditErr != nil {
 		return nil, auditErr
@@ -309,17 +300,6 @@ func copyMap(source map[string]string) map[string]string {
 		result[key] = value
 	}
 	return result
-}
-
-func sourceEnvironment(factor model.Factor, _ bool) (bool, string) {
-	return factor.GoodPresent, factor.GoodValue
-}
-
-func factorOwnerID(captureValue *model.Capture, factor model.Factor, good bool) string {
-	if good {
-		return captureValue.ID
-	}
-	return ""
 }
 
 func sortedFactors(values []model.Factor) []model.Factor {

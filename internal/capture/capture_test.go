@@ -26,9 +26,9 @@ func TestCaptureRedactsSecretEnvironment(t *testing.T) {
 	record, err := capturer.Capture(context.Background(), Request{
 		Workspace: root,
 		Command: model.CommandSpec{
-			Arguments:  []string{script},
-			Directory:  root,
-			TimeoutMS:  time.Second.Milliseconds(),
+			Arguments:   []string{script},
+			Directory:   root,
+			TimeoutMS:   time.Second.Milliseconds(),
 			Environment: map[string]string{"API_TOKEN": "super-secret", "MODE": "good"},
 		},
 		Oracle: model.Oracle{Kind: "exit", ExpectedExitCode: intPointer(0)},

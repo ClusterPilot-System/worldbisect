@@ -30,12 +30,12 @@ const (
 )
 
 type bundleManifest struct {
-	Format      string         `json:"format"`
-	CaptureID   string         `json:"capture_id"`
-	CreatedAt   time.Time      `json:"created_at"`
-	EntityPath  string         `json:"entity_path"`
-	EntityHash  string         `json:"entity_hash"`
-	BlobEntries []bundleBlob   `json:"blob_entries"`
+	Format      string       `json:"format"`
+	CaptureID   string       `json:"capture_id"`
+	CreatedAt   time.Time    `json:"created_at"`
+	EntityPath  string       `json:"entity_path"`
+	EntityHash  string       `json:"entity_hash"`
+	BlobEntries []bundleBlob `json:"blob_entries"`
 }
 
 type bundleBlob struct {
