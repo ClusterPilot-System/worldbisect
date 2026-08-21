@@ -129,6 +129,22 @@ Markdown output is also stable and can be pasted into GitHub pull requests or
 support tickets. Both formats are derived from the same report model and omit
 captured command output and factor values.
 
+Create a redacted diagnostic handoff for another engineer or support:
+
+```bash
+worldbisect export --store /tmp/worldbisect-store \
+  --analysis <analysis-id> --output diagnosis.wdiag
+worldbisect import --store /tmp/receiving-store \
+  --certificate-output imported.wbc diagnosis.wdiag
+worldbisect explain --store /tmp/receiving-store <analysis-id>
+worldbisect verify imported.wbc
+```
+
+Diagnostic bundles are deterministic and contain the analysis, both redacted
+captures, signed certificate, Markdown report, JSON report, and checksummed
+manifest. Raw command output, workspace content blobs, and secret-looking
+values are intentionally excluded.
+
 ## Commands
 
 ```text
@@ -136,7 +152,7 @@ worldbisect capture     Capture a command and its bounded runtime world
 worldbisect compare     Compare good and bad sessions and run interventions
 worldbisect explain     Render a stored analysis
 worldbisect export      Create a deterministic portable bundle
-worldbisect import      Import a validated bundle
+worldbisect import      Import a validated capture or diagnostic bundle
 worldbisect verify      Verify a causal certificate
 worldbisect audit       Verify the local audit chain
 worldbisect doctor      Validate host capabilities and configuration

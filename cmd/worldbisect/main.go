@@ -297,15 +297,29 @@ func runExport(args []string, stdout io.Writer) error {
 	set.SetOutput(io.Discard)
 	storePath := set.String("store", defaultStore(), "store directory")
 	output := set.String("output", "", "output path")
+	analysisID := set.String("analysis", "", "analysis ID for a redacted diagnostic bundle")
 	if err := set.Parse(args); err != nil {
 		return err
 	}
-	if set.NArg() != 1 || *output == "" {
+	if *output == "" {
 		return errors.New("entity ID and --output are required")
 	}
 	dataStore, err := openStore(*storePath)
 	if err != nil {
 		return err
+	}
+	if *analysisID != "" {
+		if set.NArg() != 0 {
+			return errors.New("do not provide an entity ID with --analysis")
+		}
+		if err := artifact.ExportDiagnostic(dataStore, *analysisID, *output); err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, *output)
+		return nil
+	}
+	if set.NArg() != 1 {
+		return errors.New("entity ID and --output are required")
 	}
 	if err := artifact.ExportCapture(dataStore, set.Arg(0), *output); err != nil {
 		return err
@@ -318,6 +332,7 @@ func runImport(args []string, stdout io.Writer) error {
 	set := flag.NewFlagSet("import", flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	storePath := set.String("store", defaultStore(), "store directory")
+	certificateOutput := set.String("certificate-output", "", "write an imported diagnostic certificate")
 	if err := set.Parse(args); err != nil {
 		return err
 	}
@@ -327,6 +342,17 @@ func runImport(args []string, stdout io.Writer) error {
 	dataStore, err := openStore(*storePath)
 	if err != nil {
 		return err
+	}
+	if id, certificate, diagnosticErr := artifact.ImportDiagnostic(dataStore, set.Arg(0)); diagnosticErr == nil {
+		if *certificateOutput != "" {
+			if err := os.WriteFile(*certificateOutput, certificate, 0o644); err != nil {
+				return err
+			}
+		}
+		fmt.Fprintln(stdout, id)
+		return nil
+	} else if !errors.Is(diagnosticErr, artifact.ErrNotDiagnosticBundle) {
+		return diagnosticErr
 	}
 	id, err := artifact.ImportBundle(dataStore, set.Arg(0))
 	if err != nil {

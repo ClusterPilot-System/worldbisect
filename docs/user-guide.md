@@ -118,6 +118,23 @@ worldbisect import --store /tmp/other-store capture.wcap
 
 Bundles are deterministic and validated on import. Treat them as sensitive until reviewed.
 
+For an engineer-to-engineer or support handoff, export an analysis bundle:
+
+```bash
+worldbisect export --store /tmp/wb-store \
+  --analysis <analysis-id> --output diagnosis.wdiag
+worldbisect import --store /tmp/receiving-store \
+  --certificate-output imported.wbc diagnosis.wdiag
+worldbisect explain --store /tmp/receiving-store <analysis-id>
+worldbisect verify imported.wbc
+```
+
+The diagnostic bundle contains the analysis, good and bad capture metadata,
+the signed certificate, and both stable report formats. Export redacts command
+output, workspace content blobs, command arguments, sensitive paths, and
+secret-looking environment values. Its manifest checks every entry and import
+validates the certificate and report before persistence.
+
 ## Verify certificate
 
 ```bash

@@ -38,9 +38,14 @@ explicit Markdown output or B--format jsonR for the versioned
 .TP
 .B export
 Create a deterministic portable capture bundle.
+.PP
+Use \fB--analysis ID --output diagnosis.wdiag\fR to create a redacted
+diagnostic handoff containing the analysis, captures, signed certificate,
+reports, and checksummed manifest.
 .TP
 .B import
-Import and validate a capture bundle.
+Import and validate a capture or diagnostic bundle. Use
+\fB--certificate-output PATH\fR to retain an imported diagnostic certificate.
 .TP
 .B verify
 Verify an Ed25519 causal certificate.

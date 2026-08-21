@@ -50,6 +50,21 @@ assert len(value["cause"]) == 1, value
 assert value["cause"][0]["key"] == "config.txt", value
 assert "boundaries" in value and "limitations" in value, value
 PY
+analysis_id=$(python3 - "$work/analysis.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))["analysis_id"])
+PY
+)
+diagnostic_store="$work/diagnostic-store"
+"$work/bin/worldbisect" export --store "$store" --analysis "$analysis_id" --output "$work/diagnosis.wdiag" >/dev/null
+"$work/bin/worldbisect" import --store "$diagnostic_store" --certificate-output "$work/imported.wbc" "$work/diagnosis.wdiag" >/dev/null
+"$work/bin/worldbisect" explain --store "$diagnostic_store" "$analysis_id" >/dev/null
+"$work/bin/worldbisect" verify "$work/imported.wbc" > "$work/imported-verify.json"
+python3 - "$work/imported-verify.json" <<'PY'
+import json, sys
+value=json.load(open(sys.argv[1]))
+assert value["valid"] is True, value
+PY
 "$work/bin/worldbisect" verify "$work/result.wbc" > "$work/verify.json"
 python3 - "$work/verify.json" <<'PY'
 import json, sys
