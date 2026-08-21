@@ -38,21 +38,9 @@ func WriteCertificate(dataStore *store.Store, analysisID, output string) error {
 	if err != nil {
 		return err
 	}
-	privateKey, publicKey, err := loadOrCreateSigningKey(dataStore.Root())
+	certificate, err := certificateForAnalysis(dataStore, analysis)
 	if err != nil {
 		return err
-	}
-	payload, err := json.Marshal(analysis)
-	if err != nil {
-		return err
-	}
-	signature := ed25519.Sign(privateKey, payload)
-	certificate := Certificate{
-		Format:      "worldbisect.causal-certificate.v1",
-		Payload:     *analysis,
-		PublicKey:   base64.RawStdEncoding.EncodeToString(publicKey),
-		Signature:   base64.RawStdEncoding.EncodeToString(signature),
-		GeneratedAt: time.Now().UTC(),
 	}
 	encoded, err := json.MarshalIndent(certificate, "", "  ")
 	if err != nil {
@@ -60,6 +48,25 @@ func WriteCertificate(dataStore *store.Store, analysisID, output string) error {
 	}
 	encoded = append(encoded, '\n')
 	return atomicWriteFile(output, encoded, 0o644)
+}
+
+func certificateForAnalysis(dataStore *store.Store, analysis *model.Analysis) (Certificate, error) {
+	privateKey, publicKey, err := loadOrCreateSigningKey(dataStore.Root())
+	if err != nil {
+		return Certificate{}, err
+	}
+	payload, err := json.Marshal(analysis)
+	if err != nil {
+		return Certificate{}, err
+	}
+	signature := ed25519.Sign(privateKey, payload)
+	return Certificate{
+		Format:      "worldbisect.causal-certificate.v1",
+		Payload:     *analysis,
+		PublicKey:   base64.RawStdEncoding.EncodeToString(publicKey),
+		Signature:   base64.RawStdEncoding.EncodeToString(signature),
+		GeneratedAt: analysis.CreatedAt,
+	}, nil
 }
 
 func VerifyCertificate(path, publicKeyPath string) (VerificationResult, error) {
