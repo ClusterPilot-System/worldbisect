@@ -70,13 +70,13 @@ jobs:
       contents: read
       security-events: write
     steps:
+      - name: Checkout repository for Code Scanning context
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download diagnostic reports
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: worldbisect-diagnostic-reports
           path: build/diagnostics
-      - name: Checkout repository for Code Scanning context
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Prepare SARIF for Code Scanning
         shell: bash
         run: |
