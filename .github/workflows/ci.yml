@@ -89,11 +89,17 @@ jobs:
           document = json.loads(source.read_text(encoding="utf-8"))
           for run in document.get("runs", []):
               for result in run.get("results", []):
-                  # WorldBisect locations identify an analysis, not a source file.
-                  # GitHub Code Scanning accepts only file/relative artifact URIs,
-                  # so keep the canonical SARIF unchanged and upload this
-                  # analysis-level projection without a misleading file location.
-                  result.pop("locations", None)
+                  # WorldBisect's canonical location identifies an analysis, not
+                  # a source file. Code Scanning requires a relative/file URI and
+                  # at least one location, so point the upload projection at the
+                  # generated diagnostic artifact while keeping the canonical
+                  # SARIF unchanged.
+                  result["locations"] = [{
+                      "physicalLocation": {
+                          "artifactLocation": {"uri": "build/diagnostics/analysis.sarif"},
+                          "region": {"startLine": 1},
+                      }
+                  }]
           target.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
           PY
       - name: Upload SARIF findings
