@@ -124,6 +124,12 @@ also includes a proof explanation, evidence boundaries, and technical IDs for
 support. Use `--format json` when a machine needs the stable structured
 contract instead of the human-readable report.
 
+Large or long-running analyses are bounded by explicit workspace file/byte,
+output, timeout, factor, and experiment limits. Use `--progress` to receive
+experiment progress on stderr without corrupting JSON stdout. Press Ctrl+C to
+cancel safely; completed work remains persisted and reusable through the
+experiment cache, while an interrupted run remains visibly incomplete.
+
 The JSON output is the versioned `worldbisect.analysis-report.v1` contract.
 Markdown output is also stable and can be pasted into GitHub pull requests or
 support tickets. Both formats are derived from the same report model and omit

@@ -24,6 +24,25 @@ type Request struct {
 	MaxExperiments int
 	MaxFactors     int
 	MaxOutputBytes int64
+	Progress       func(ProgressEvent)
+}
+
+type ProgressEvent struct {
+	ExperimentID string `json:"experiment_id"`
+	Kind         string `json:"kind"`
+	CacheHit     bool   `json:"cache_hit"`
+}
+
+type progressContextKey struct{}
+
+func withProgress(ctx context.Context, progress func(ProgressEvent)) context.Context {
+	return context.WithValue(ctx, progressContextKey{}, progress)
+}
+
+func notifyProgress(ctx context.Context, event ProgressEvent) {
+	if progress, ok := ctx.Value(progressContextKey{}).(func(ProgressEvent)); ok && progress != nil {
+		progress(event)
+	}
 }
 
 type Engine struct {
@@ -36,6 +55,7 @@ func New(dataStore *store.Store, commandRunner *runner.Runner) *Engine {
 }
 
 func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Analysis, error) {
+	ctx = withProgress(ctx, request.Progress)
 	if request.Good == nil || request.Bad == nil {
 		return nil, errors.New("good and bad captures are required")
 	}
@@ -68,16 +88,25 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 		Repetitions:        request.Repetitions,
 		ExperimentBudget:   request.MaxExperiments,
 	}
+	if err := ctx.Err(); err != nil {
+		return engine.finishInterrupted(analysis, err)
+	}
 
 	goodBaseline, err := engine.verifyBaseline(ctx, request.Good, request.Command, true, request.Repetitions, request.MaxOutputBytes)
 	analysis.Experiments = append(analysis.Experiments, goodBaseline...)
 	if err != nil {
+		if ctx.Err() != nil {
+			return engine.finishInterrupted(analysis, ctx.Err())
+		}
 		analysis.Limitations = append(analysis.Limitations, "good baseline is not stable: "+err.Error())
 		return engine.finish(analysis, nil)
 	}
 	badBaseline, err := engine.verifyBaseline(ctx, request.Bad, request.Command, false, request.Repetitions, request.MaxOutputBytes)
 	analysis.Experiments = append(analysis.Experiments, badBaseline...)
 	if err != nil {
+		if ctx.Err() != nil {
+			return engine.finishInterrupted(analysis, ctx.Err())
+		}
 		analysis.Limitations = append(analysis.Limitations, "bad baseline is not stable: "+err.Error())
 		return engine.finish(analysis, nil)
 	}
@@ -105,6 +134,9 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 	})
 	_ = used
 	if minimizeErr != nil {
+		if ctx.Err() != nil {
+			return engine.finishInterrupted(analysis, ctx.Err())
+		}
 		analysis.Limitations = append(analysis.Limitations, minimizeErr.Error())
 		return engine.finish(analysis, nil)
 	}
@@ -120,6 +152,9 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 	reverseRecords, reversePasses, err := engine.runIntervention(ctx, request.Good, request.Bad, request.Good.ID, request.Command, minimized, factorByID, request.Repetitions, false, request.MaxOutputBytes)
 	analysis.Experiments = append(analysis.Experiments, reverseRecords...)
 	if err != nil {
+		if ctx.Err() != nil {
+			return engine.finishInterrupted(analysis, ctx.Err())
+		}
 		analysis.Limitations = append(analysis.Limitations, "reverse verification failed: "+err.Error())
 		return engine.finish(analysis, nil)
 	}
@@ -133,6 +168,9 @@ func (engine *Engine) Analyze(ctx context.Context, request Request) (*model.Anal
 	minimal, minimalityRecords, err := engine.verifyMinimality(ctx, request, minimized, factorByID)
 	analysis.Experiments = append(analysis.Experiments, minimalityRecords...)
 	if err != nil {
+		if ctx.Err() != nil {
+			return engine.finishInterrupted(analysis, ctx.Err())
+		}
 		analysis.Limitations = append(analysis.Limitations, "minimality verification incomplete: "+err.Error())
 		analysis.Status = model.StatusSupported
 		analysis.CausalFactors = minimized
@@ -198,6 +236,7 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 		cached.SourceCaptureID = source.ID
 		cached.FactorIDs = append([]string(nil), factorIDs...)
 		cached.CacheHit = true
+		notifyProgress(ctx, ProgressEvent{ExperimentID: cached.ID, Kind: cached.Kind, CacheHit: true})
 		return cached, cached.OracleResult.Passed, nil
 	}
 	root, err := os.MkdirTemp("", "worldbisect-experiment-")
@@ -268,6 +307,7 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 		// still returned if the disposable cache is unavailable or full.
 		_ = engine.store.SaveExperimentCache(cacheKey, record)
 	}
+	notifyProgress(ctx, ProgressEvent{ExperimentID: record.ID, Kind: record.Kind, CacheHit: false})
 	return record, record.OracleResult.Passed, nil
 }
 
@@ -308,6 +348,11 @@ func (engine *Engine) finish(analysis *model.Analysis, err error) (*model.Analys
 		return nil, auditErr
 	}
 	return analysis, err
+}
+
+func (engine *Engine) finishInterrupted(analysis *model.Analysis, err error) (*model.Analysis, error) {
+	analysis.Limitations = append(analysis.Limitations, "analysis cancelled; completed experiments were retained and can be reused by the experiment cache")
+	return engine.finish(analysis, err)
 }
 
 func copyMap(source map[string]string) map[string]string {

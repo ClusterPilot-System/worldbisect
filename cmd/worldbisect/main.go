@@ -75,7 +75,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "capture":
 		return runCapture(args[1:], stdout)
 	case "compare":
-		return runCompare(args[1:], stdout)
+		return runCompare(args[1:], stdout, stderr)
 	case "explain":
 		return runExplain(args[1:], stdout)
 	case "export":
@@ -138,6 +138,9 @@ func runCapture(args []string, stdout io.Writer) error {
 	label := set.String("label", "", "capture label")
 	oracleSpec := set.String("oracle", "exit=0", "failure oracle")
 	timeout := set.Duration("timeout", 2*time.Minute, "command timeout")
+	maxWorkspaceFiles := set.Int("max-workspace-files", 10000, "maximum workspace files to scan")
+	maxWorkspaceBytes := set.Int64("max-workspace-bytes", 1<<30, "maximum workspace bytes to scan")
+	maxOutputBytes := set.Int64("max-output-bytes", 8<<20, "maximum captured stdout and stderr bytes")
 	output := set.String("output", "", "portable bundle output")
 	format := set.String("format", "text", "text or json")
 	if err := set.Parse(flags); err != nil {
@@ -162,7 +165,9 @@ func runCapture(args []string, stdout io.Writer) error {
 		return err
 	}
 	capturer := capture.New(dataStore, runner.New())
-	record, err := capturer.Capture(context.Background(), capture.Request{
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	record, err := capturer.Capture(ctx, capture.Request{
 		Label:     *label,
 		Workspace: root,
 		Command: model.CommandSpec{
@@ -172,6 +177,7 @@ func runCapture(args []string, stdout io.Writer) error {
 			Environment: model.EnvironmentFromList(os.Environ()),
 		},
 		Oracle: parsedOracle,
+		Limits: model.CaptureLimits{MaxWorkspaceFiles: *maxWorkspaceFiles, MaxWorkspaceBytes: *maxWorkspaceBytes, MaxOutputBytes: *maxOutputBytes, Timeout: *timeout},
 	})
 	if record != nil && *output != "" {
 		if err := artifact.ExportCapture(dataStore, record.ID, *output); err != nil {
@@ -187,7 +193,7 @@ func runCapture(args []string, stdout io.Writer) error {
 	return err
 }
 
-func runCompare(args []string, stdout io.Writer) error {
+func runCompare(args []string, stdout, stderr io.Writer) error {
 	flags, command, err := splitCommand(args)
 	if err != nil {
 		return err
@@ -199,6 +205,10 @@ func runCompare(args []string, stdout io.Writer) error {
 	bad := set.String("bad", "", "bad capture ID or bundle")
 	repetitions := set.Int("repetitions", 3, "experiment repetitions")
 	maxExperiments := set.Int("max-experiments", 128, "experiment budget")
+	maxFactors := set.Int("max-factors", 512, "maximum supported factors")
+	maxOutputBytes := set.Int64("max-output-bytes", 8<<20, "maximum captured stdout and stderr bytes per experiment")
+	timeout := set.Duration("timeout", 0, "override command timeout")
+	progress := set.Bool("progress", false, "write bounded experiment progress to stderr")
 	format := set.String("format", "text", "text, json, junit, or sarif")
 	certificate := set.String("certificate", "", "certificate output path")
 	reportURL := set.String("report-url", "", "stable URL for the report")
@@ -233,13 +243,26 @@ func runCompare(args []string, stdout io.Writer) error {
 	if len(command) == 0 {
 		command = append([]string(nil), badCapture.Command.Arguments...)
 	}
+	if *timeout > 0 {
+		goodCapture.Command.TimeoutMS = timeout.Milliseconds()
+		badCapture.Command.TimeoutMS = timeout.Milliseconds()
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	engine := experiment.New(dataStore, runner.New())
-	analysis, err := engine.Analyze(context.Background(), experiment.Request{
+	analysis, err := engine.Analyze(ctx, experiment.Request{
 		Good:           goodCapture,
 		Bad:            badCapture,
 		Command:        command,
 		Repetitions:    *repetitions,
 		MaxExperiments: *maxExperiments,
+		MaxFactors:     *maxFactors,
+		MaxOutputBytes: *maxOutputBytes,
+		Progress: func(event experiment.ProgressEvent) {
+			if *progress {
+				fmt.Fprintf(stderr, "progress: experiment=%s kind=%s cache_hit=%t\n", event.ExperimentID, event.Kind, event.CacheHit)
+			}
+		},
 	})
 	if analysis != nil && *certificate != "" {
 		if err := artifact.WriteCertificate(dataStore, analysis.ID, *certificate); err != nil {
@@ -247,7 +270,11 @@ func runCompare(args []string, stdout io.Writer) error {
 		}
 	}
 	if analysis != nil {
-		return finishAnalysis(stdout, analysis, *format, report.OutputLinks{ReportURL: *reportURL, BundleURL: *bundleURL}, *failOn)
+		outputErr := finishAnalysis(stdout, analysis, *format, report.OutputLinks{ReportURL: *reportURL, BundleURL: *bundleURL}, *failOn)
+		if outputErr != nil {
+			return outputErr
+		}
+		return err
 	}
 	return err
 }
