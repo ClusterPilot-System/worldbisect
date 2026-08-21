@@ -137,6 +137,13 @@ func TestDiagnosticBundleIsDeterministicRedactedAndVerifiable(t *testing.T) {
 	if err := dataStore.SaveAnalysis(analysis); err != nil {
 		t.Fatal(err)
 	}
+	preview, err := PreviewDiagnostic(dataStore, analysis.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.IncidentID == "" || preview.AnalysisID != analysis.ID || !preview.ConfirmationRequired || len(preview.RedactedFields) == 0 {
+		t.Fatalf("invalid handoff preview: %+v", preview)
+	}
 	first := filepath.Join(t.TempDir(), "first.wdiag")
 	second := filepath.Join(t.TempDir(), "second.wdiag")
 	if err := ExportDiagnostic(dataStore, analysis.ID, first); err != nil {
@@ -155,6 +162,13 @@ func TestDiagnosticBundleIsDeterministicRedactedAndVerifiable(t *testing.T) {
 	}
 	if !bytes.Equal(firstBytes, secondBytes) {
 		t.Fatal("diagnostic bundle is not deterministic")
+	}
+	entries, err := readDiagnosticArchive(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(entries["manifest.json"], []byte(preview.IncidentID)) {
+		t.Fatal("diagnostic bundle does not contain the preview incident ID")
 	}
 	if bytes.Contains(firstBytes, []byte("supersecret")) || bytes.Contains(firstBytes, []byte("othersecret")) {
 		t.Fatal("diagnostic bundle contains unredacted secret material")

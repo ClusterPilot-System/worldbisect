@@ -40,6 +40,7 @@ Usage:
   worldbisect compare [options] -- command [args...]
   worldbisect explain [options] <analysis-id>
   worldbisect export [options] <entity-id>
+  worldbisect handoff [options] --analysis <analysis-id>
   worldbisect import [options] <bundle.wcap>
   worldbisect verify [options] <certificate.json>
   worldbisect audit [options]
@@ -79,6 +80,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runExplain(args[1:], stdout)
 	case "export":
 		return runExport(args[1:], stdout)
+	case "handoff":
+		return runHandoff(args[1:], stdout)
 	case "import":
 		return runImport(args[1:], stdout)
 	case "verify":
@@ -332,10 +335,12 @@ func runExport(args []string, stdout io.Writer) error {
 	storePath := set.String("store", defaultStore(), "store directory")
 	output := set.String("output", "", "output path")
 	analysisID := set.String("analysis", "", "analysis ID for a redacted diagnostic bundle")
+	preview := set.Bool("preview", false, "show redaction preview without exporting")
+	confirm := set.Bool("confirm", false, "confirm creation of the diagnostic handoff")
 	if err := set.Parse(args); err != nil {
 		return err
 	}
-	if *output == "" {
+	if *output == "" && !(*analysisID != "" && *preview) {
 		return errors.New("entity ID and --output are required")
 	}
 	dataStore, err := openStore(*storePath)
@@ -346,11 +351,7 @@ func runExport(args []string, stdout io.Writer) error {
 		if set.NArg() != 0 {
 			return errors.New("do not provide an entity ID with --analysis")
 		}
-		if err := artifact.ExportDiagnostic(dataStore, *analysisID, *output); err != nil {
-			return err
-		}
-		fmt.Fprintln(stdout, *output)
-		return nil
+		return runDiagnosticHandoff(dataStore, *analysisID, *output, *preview, *confirm, stdout)
 	}
 	if set.NArg() != 1 {
 		return errors.New("entity ID and --output are required")
@@ -360,6 +361,56 @@ func runExport(args []string, stdout io.Writer) error {
 	}
 	fmt.Fprintln(stdout, *output)
 	return nil
+}
+
+func runHandoff(args []string, stdout io.Writer) error {
+	set := flag.NewFlagSet("handoff", flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	storePath := set.String("store", defaultStore(), "store directory")
+	output := set.String("output", "", "diagnostic bundle output path")
+	analysisID := set.String("analysis", "", "analysis ID")
+	preview := set.Bool("preview", false, "show redaction preview without exporting")
+	confirm := set.Bool("confirm", false, "confirm creation of the diagnostic handoff")
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	if *analysisID == "" || (*output == "" && !*preview) {
+		return errors.New("--analysis and --output are required (output may be omitted for --preview)")
+	}
+	if set.NArg() != 0 {
+		return errors.New("handoff does not accept a positional entity ID")
+	}
+	dataStore, err := openStore(*storePath)
+	if err != nil {
+		return err
+	}
+	return runDiagnosticHandoff(dataStore, *analysisID, *output, *preview, *confirm, stdout)
+}
+
+func runDiagnosticHandoff(dataStore *store.Store, analysisID, output string, preview, confirm bool, stdout io.Writer) error {
+	previewResult, err := artifact.PreviewDiagnostic(dataStore, analysisID)
+	if err != nil {
+		return err
+	}
+	if preview {
+		return writeJSON(stdout, previewResult)
+	}
+	if !confirm {
+		return errors.New("diagnostic handoff requires explicit confirmation; run with --preview, review the redaction result, then repeat with --confirm")
+	}
+	if err := artifact.ExportDiagnostic(dataStore, analysisID, output); err != nil {
+		return err
+	}
+	if err := dataStore.AppendAudit("support-handoff-export", "analysis", analysisID, map[string]any{
+		"incident_id": previewResult.IncidentID,
+	}); err != nil {
+		return err
+	}
+	return writeJSON(stdout, struct {
+		IncidentID string `json:"incident_id"`
+		AnalysisID string `json:"analysis_id"`
+		Output     string `json:"output"`
+	}{IncidentID: previewResult.IncidentID, AnalysisID: analysisID, Output: output})
 }
 
 func runImport(args []string, stdout io.Writer) error {

@@ -21,9 +21,20 @@ const diagnosticBundleFormat = "worldbisect.diagnostic.v1"
 
 var ErrNotDiagnosticBundle = errors.New("not a diagnostic bundle")
 
+type DiagnosticPreview struct {
+	IncidentID           string   `json:"incident_id"`
+	AnalysisID           string   `json:"analysis_id"`
+	Status               string   `json:"status"`
+	Files                []string `json:"files"`
+	RedactedFields       []string `json:"redacted_fields"`
+	ConfirmationRequired bool     `json:"confirmation_required"`
+	RetentionGuidance    string   `json:"retention_guidance"`
+}
+
 type diagnosticManifest struct {
 	Format        string            `json:"format"`
 	SchemaVersion int               `json:"schema_version"`
+	IncidentID    string            `json:"incident_id"`
 	AnalysisID    string            `json:"analysis_id"`
 	CreatedAt     string            `json:"created_at"`
 	Entries       []diagnosticEntry `json:"entries"`
@@ -98,7 +109,7 @@ func ExportDiagnostic(dataStore *store.Store, analysisID, output string) error {
 		{Name: "report.md", Content: reportMarkdown},
 	}
 	manifest := diagnosticManifest{
-		Format: diagnosticBundleFormat, SchemaVersion: 1, AnalysisID: redactedAnalysis.ID,
+		Format: diagnosticBundleFormat, SchemaVersion: 1, IncidentID: diagnosticIncidentID(redactedAnalysis, redactedGood, redactedBad), AnalysisID: redactedAnalysis.ID,
 		CreatedAt: redactedAnalysis.CreatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
 	}
 	for _, entry := range entries {
@@ -110,6 +121,48 @@ func ExportDiagnostic(dataStore *store.Store, analysisID, output string) error {
 	}
 	entries = append(entries, archiveEntry{Name: "manifest.json", Content: manifestBytes})
 	return writeDeterministicTarGzip(output, entries)
+}
+
+// PreviewDiagnostic performs the same load and redaction preparation as
+// export without writing an artifact. The CLI displays this before requiring
+// explicit operator confirmation.
+func PreviewDiagnostic(dataStore *store.Store, analysisID string) (DiagnosticPreview, error) {
+	analysis, err := dataStore.LoadAnalysis(analysisID)
+	if err != nil {
+		return DiagnosticPreview{}, err
+	}
+	if analysis.GoodCaptureID == "" || analysis.BadCaptureID == "" {
+		return DiagnosticPreview{}, errors.New("analysis does not reference both good and bad captures")
+	}
+	good, err := dataStore.LoadCapture(analysis.GoodCaptureID)
+	if err != nil {
+		return DiagnosticPreview{}, err
+	}
+	bad, err := dataStore.LoadCapture(analysis.BadCaptureID)
+	if err != nil {
+		return DiagnosticPreview{}, err
+	}
+	redactedAnalysis := redactAnalysis(analysis)
+	redactedGood := redactCapture(good)
+	redactedBad := redactCapture(bad)
+	return DiagnosticPreview{
+		IncidentID:           diagnosticIncidentID(redactedAnalysis, redactedGood, redactedBad),
+		AnalysisID:           analysis.ID,
+		Status:               string(analysis.Status),
+		Files:                []string{"analysis.json", "captures/good.json", "captures/bad.json", "certificate.json", "report.json", "report.md", "manifest.json"},
+		RedactedFields:       []string{"workspace roots", "command arguments and directories", "command output and errors", "sensitive environment values", "oracle secrets and workspace digests", "factor values and experiment output"},
+		ConfirmationRequired: true,
+		RetentionGuidance:    "retain only for the support period; delete the bundle and certificate after the case is closed",
+	}, nil
+}
+
+func diagnosticIncidentID(analysis *model.Analysis, good, bad *model.Capture) string {
+	content, _ := canonicalJSON(struct {
+		Analysis *model.Analysis `json:"analysis"`
+		Good     *model.Capture  `json:"good"`
+		Bad      *model.Capture  `json:"bad"`
+	}{Analysis: analysis, Good: good, Bad: bad})
+	return "inc-" + digest(content)[:16]
 }
 
 // ImportDiagnostic validates every declared byte before persisting any entity.

@@ -34,7 +34,7 @@ Bidirectional proof kernel -> report -> signed certificate / bundle
 
 ### CLI
 
-The CLI is the primary interface. It captures commands, compares sessions, explains analyses, exports and imports bundles, verifies certificates, validates the audit chain, runs host diagnostics, and can host the API.
+The CLI is the primary interface. It captures commands, compares sessions, explains analyses, previews and explicitly confirms support handoffs, exports and imports bundles, verifies certificates, validates the audit chain, runs host diagnostics, and can host the API.
 
 ### Daemon
 

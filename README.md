@@ -132,8 +132,10 @@ captured command output and factor values.
 Create a redacted diagnostic handoff for another engineer or support:
 
 ```bash
-worldbisect export --store /tmp/worldbisect-store \
-  --analysis <analysis-id> --output diagnosis.wdiag
+worldbisect handoff --store /tmp/worldbisect-store \
+  --analysis <analysis-id> --preview
+worldbisect handoff --store /tmp/worldbisect-store \
+  --analysis <analysis-id> --output diagnosis.wdiag --confirm
 worldbisect import --store /tmp/receiving-store \
   --certificate-output imported.wbc diagnosis.wdiag
 worldbisect explain --store /tmp/receiving-store <analysis-id>
@@ -144,6 +146,11 @@ Diagnostic bundles are deterministic and contain the analysis, both redacted
 captures, signed certificate, Markdown report, JSON report, and checksummed
 manifest. Raw command output, workspace content blobs, and secret-looking
 values are intentionally excluded.
+
+The handoff preview is read-only and must be reviewed before repeating the
+command with `--confirm`. It reports a deterministic incident ID, redacted
+fields, artifact names, and retention guidance. Keep handoff files in the
+approved support channel only, and delete them after the support case closes.
 
 `verify` performs an offline signature check and returns a machine-readable
 `valid`, `trust`, and `next_action` result. Use `--public-key` when the signing
@@ -165,6 +172,7 @@ worldbisect capture     Capture a command and its bounded runtime world
 worldbisect compare     Compare good and bad sessions and run interventions
 worldbisect explain     Render a stored analysis
 worldbisect export      Create a deterministic portable bundle
+worldbisect handoff     Preview and explicitly confirm a support handoff
 worldbisect import      Import a validated capture or diagnostic bundle
 worldbisect verify      Verify a causal certificate
 worldbisect audit       Verify the local audit chain
