@@ -4,8 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"crypto/ed25519"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,7 +63,7 @@ func ExportDiagnostic(dataStore *store.Store, analysisID, output string) error {
 	redactedGood := redactCapture(good)
 	redactedBad := redactCapture(bad)
 
-	certificate, err := certificateForAnalysis(dataStore, redactedAnalysis)
+	certificate, err := certificateForAnalysisWithEvidence(dataStore, redactedAnalysis, redactedGood, redactedBad)
 	if err != nil {
 		return err
 	}
@@ -189,7 +187,7 @@ func ImportDiagnostic(dataStore *store.Store, bundlePath string) (string, []byte
 	if err := decodeStrict(entries["certificate.json"], &certificate); err != nil {
 		return "", nil, fmt.Errorf("decode diagnostic certificate: %w", err)
 	}
-	if result := verifyCertificateValue(certificate, &analysis); !result.Valid {
+	if result := verifyCertificateValue(certificate, &analysis, &good, &bad); !result.Valid {
 		return "", nil, fmt.Errorf("diagnostic certificate is invalid: %s", result.Error)
 	}
 	var structured report.AnalysisReport
@@ -374,35 +372,4 @@ func validDiagnosticID(value string) bool {
 		return false
 	}
 	return !strings.Contains(value, "..")
-}
-
-func verifyCertificateValue(certificate Certificate, analysis *model.Analysis) VerificationResult {
-	if certificate.Format != "worldbisect.causal-certificate.v1" || certificate.Payload.ID != analysis.ID {
-		return VerificationResult{Valid: false, AnalysisID: analysis.ID, Error: "certificate identity mismatch"}
-	}
-	if certificate.Payload.Status != analysis.Status {
-		return VerificationResult{Valid: false, AnalysisID: analysis.ID, Error: "certificate status mismatch"}
-	}
-	key, err := base64.RawStdEncoding.DecodeString(certificate.PublicKey)
-	if err != nil || len(key) != ed25519.PublicKeySize {
-		return VerificationResult{Valid: false, AnalysisID: analysis.ID, Error: "invalid embedded public key"}
-	}
-	signature, err := base64.RawStdEncoding.DecodeString(certificate.Signature)
-	if err != nil || len(signature) != ed25519.SignatureSize {
-		return VerificationResult{Valid: false, AnalysisID: analysis.ID, Error: "invalid certificate signature"}
-	}
-	payload, err := json.Marshal(certificate.Payload)
-	if err != nil {
-		return VerificationResult{Valid: false, AnalysisID: analysis.ID, Error: "certificate payload could not be encoded"}
-	}
-	expected, err := json.Marshal(analysis)
-	if err != nil || !bytes.Equal(payload, expected) {
-		return VerificationResult{Valid: false, AnalysisID: analysis.ID, Error: "certificate payload does not match analysis"}
-	}
-	valid := ed25519.Verify(ed25519.PublicKey(key), payload, signature)
-	result := VerificationResult{Valid: valid, AnalysisID: analysis.ID, Status: string(analysis.Status)}
-	if !valid {
-		result.Error = "signature verification failed"
-	}
-	return result
 }

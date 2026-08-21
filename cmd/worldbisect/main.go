@@ -410,7 +410,13 @@ func runVerify(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return writeJSON(stdout, result)
+	if err := writeJSON(stdout, result); err != nil {
+		return err
+	}
+	if !result.Valid {
+		return errors.New("certificate verification failed")
+	}
+	return nil
 }
 
 func runAudit(args []string, stdout io.Writer) error {
