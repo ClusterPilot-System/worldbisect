@@ -67,17 +67,45 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
+      contents: read
       security-events: write
     steps:
+      - name: Checkout repository for Code Scanning context
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download diagnostic reports
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: worldbisect-diagnostic-reports
           path: build/diagnostics
+      - name: Prepare SARIF for Code Scanning
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = Path("build/diagnostics/analysis.sarif")
+          target = Path("build/diagnostics/github-code-scanning.sarif")
+          document = json.loads(source.read_text(encoding="utf-8"))
+          for run in document.get("runs", []):
+              for result in run.get("results", []):
+                  # WorldBisect's canonical location identifies an analysis, not
+                  # a source file. Code Scanning requires a relative/file URI and
+                  # at least one location, so point the upload projection at the
+                  # generated diagnostic artifact while keeping the canonical
+                  # SARIF unchanged.
+                  result["locations"] = [{
+                      "physicalLocation": {
+                          "artifactLocation": {"uri": "build/diagnostics/analysis.sarif"},
+                          "region": {"startLine": 1},
+                      }
+                  }]
+          target.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+          PY
       - name: Upload SARIF findings
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
-          sarif_file: build/diagnostics/analysis.sarif
+          sarif_file: build/diagnostics/github-code-scanning.sarif
 
   arm64-runtime:
     runs-on: ubuntu-22.04-arm
