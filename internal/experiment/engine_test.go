@@ -2,8 +2,10 @@ package experiment
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,7 +45,8 @@ func TestEngineProvesFileCause(t *testing.T) {
 		t.Fatal(err)
 	}
 	bad, _ := capturer.Capture(context.Background(), capture.Request{Workspace: badRoot, Command: model.CommandSpec{Arguments: []string{"./check.sh"}, Directory: badRoot, TimeoutMS: time.Second.Milliseconds(), Environment: map[string]string{}}, Oracle: oracleValue})
-	analysis, err := New(dataStore, runner.New()).Analyze(context.Background(), Request{Good: good, Bad: bad, Command: []string{"./check.sh"}, Repetitions: 2, MaxExperiments: 64})
+	progressEvents := 0
+	analysis, err := New(dataStore, runner.New()).Analyze(context.Background(), Request{Good: good, Bad: bad, Command: []string{"./check.sh"}, Repetitions: 2, MaxExperiments: 64, Progress: func(ProgressEvent) { progressEvents++ }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,6 +55,9 @@ func TestEngineProvesFileCause(t *testing.T) {
 	}
 	if len(analysis.CausalFactors) != 1 {
 		t.Fatalf("causal factors = %v", analysis.CausalFactors)
+	}
+	if progressEvents == 0 {
+		t.Fatal("analysis did not emit progress events")
 	}
 	cachedAnalysis, err := New(dataStore, runner.New()).Analyze(context.Background(), Request{Good: good, Bad: bad, Command: []string{"./check.sh"}, Repetitions: 2, MaxExperiments: 64})
 	if err != nil {
@@ -68,6 +74,34 @@ func TestEngineProvesFileCause(t *testing.T) {
 	}
 	if cachedAnalysis.Status != model.StatusProven {
 		t.Fatalf("cached status = %s limitations=%v", cachedAnalysis.Status, cachedAnalysis.Limitations)
+	}
+}
+
+func TestCancelledAnalysisPersistsCompletedState(t *testing.T) {
+	dataStore, err := store.Open(filepath.Join(t.TempDir(), "store"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	createdAt := time.Unix(1, 0).UTC()
+	good := &model.Capture{SchemaVersion: 3, ID: "good-cancel", CreatedAt: createdAt, Command: model.CommandSpec{Arguments: []string{"check"}}}
+	bad := &model.Capture{SchemaVersion: 3, ID: "bad-cancel", CreatedAt: createdAt, Command: model.CommandSpec{Arguments: []string{"check"}}}
+	if err := dataStore.SaveCapture(good); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.SaveCapture(bad); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	analysis, err := New(dataStore, runner.New()).Analyze(ctx, Request{Good: good, Bad: bad, Command: []string{"check"}})
+	if !errors.Is(err, context.Canceled) || analysis == nil {
+		t.Fatalf("cancelled analysis = %+v, %v", analysis, err)
+	}
+	if len(analysis.Limitations) == 0 || !strings.Contains(analysis.Limitations[len(analysis.Limitations)-1], "completed experiments were retained") {
+		t.Fatalf("cancellation guidance missing: %+v", analysis.Limitations)
+	}
+	if _, err := dataStore.LoadAnalysis(analysis.ID); err != nil {
+		t.Fatalf("cancelled analysis was not persisted: %v", err)
 	}
 }
 

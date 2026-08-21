@@ -34,6 +34,10 @@ worldbisect capture \
   --store /tmp/wb-store \
   --workspace /path/to/good \
   --oracle exit=0 \
+  --max-workspace-files 10000 \
+  --max-workspace-bytes 1073741824 \
+  --max-output-bytes 8388608 \
+  --timeout 2m \
   --label good \
   --output /tmp/good.wcap \
   -- ./test-command
@@ -59,11 +63,21 @@ worldbisect compare \
   --bad /tmp/bad.wcap \
   --repetitions 3 \
   --max-experiments 128 \
+  --max-factors 512 \
+  --max-output-bytes 8388608 \
+  --timeout 2m \
+  --progress \
   --certificate /tmp/result.wbc \
   -- ./test-command
 ```
 
-WorldBisect imports bundles when a path is supplied, compares the sessions, reruns the baselines, tests candidate groups, minimizes a supported factor set, reverses the intervention direction, and records all experiments.
+WorldBisect imports bundles when a path is supplied, compares the sessions, reruns the baselines, tests candidate groups, minimizes a supported factor set, reverses the intervention direction, and records all experiments. Workspace file/byte limits, output limits, timeouts, factor limits, and experiment budgets are explicit. Progress is written to stderr, so JSON stdout remains machine-readable.
+
+Press Ctrl+C to cancel a long capture or analysis. Running child process groups
+are terminated safely, and an interrupted analysis is persisted as `UNPROVEN`
+with completed experiments retained in the store/cache. The report explains
+that the run was interrupted and that repeating the same analysis can reuse
+completed experiment results; partial failure is never presented as proof.
 
 Workspace factors are limited to regular file content/presence, permission
 bits, directories, and relative symlinks whose targets remain inside the
