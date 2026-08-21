@@ -80,6 +80,47 @@ func TestScanMarksEscapingSymlinkUnsupported(t *testing.T) {
 	}
 }
 
+func TestScanRejectsHardlinkAsUnsupported(t *testing.T) {
+	root := t.TempDir()
+	external := filepath.Join(t.TempDir(), "outside-secret")
+	if err := os.WriteFile(external, []byte("do not ingest"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "linked-file")
+	if err := os.Link(external, link); err != nil {
+		t.Skipf("hardlinks unavailable: %v", err)
+	}
+	dataStore, err := store.Open(filepath.Join(t.TempDir(), "store"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := Scan(root, dataStore, 100, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.Entries) != 1 || manifest.Entries[0].Type != "unsupported" || manifest.Entries[0].BlobDigest != "" {
+		t.Fatalf("hardlink was ingested: %+v", manifest.Entries)
+	}
+}
+
+func TestReadStableFileRejectsMetadataChange(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "changing")
+	if err := os.WriteFile(path, []byte("content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	expected, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readStableFile(path, expected, 1<<20); err == nil {
+		t.Fatal("metadata change was accepted")
+	}
+}
+
 func TestApplyPreservesFileAndDirectoryModes(t *testing.T) {
 	dataStore, _ := store.Open(filepath.Join(t.TempDir(), "store"))
 	digest, err := dataStore.PutBlob([]byte("content"))

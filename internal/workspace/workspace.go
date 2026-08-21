@@ -71,17 +71,15 @@ func Scan(root string, dataStore *store.Store, maxFiles int, maxBytes int64) (mo
 		switch {
 		case info.Mode().IsRegular():
 			item.Type = "file"
-			file, err := os.Open(path)
+			if hardlinkCount(info) > 1 {
+				item.Type = "unsupported"
+				break
+			}
+			content, err := readStableFile(path, info, maxBytes)
 			if err != nil {
 				return err
 			}
 			contentHash := sha256.New()
-			limited := io.LimitReader(file, maxBytes+1)
-			content, err := io.ReadAll(limited)
-			file.Close()
-			if err != nil {
-				return err
-			}
 			manifest.TotalBytes += int64(len(content))
 			if manifest.TotalBytes > maxBytes {
 				return errors.New("workspace byte quota exceeded")
@@ -125,6 +123,37 @@ func Scan(root string, dataStore *store.Store, maxFiles int, maxBytes int64) (mo
 	}
 	manifest.Digest = hex.EncodeToString(hash.Sum(nil))
 	return manifest, nil
+}
+
+func readStableFile(path string, expected os.FileInfo, maxBytes int64) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !sameFileState(expected, opened) {
+		return nil, fmt.Errorf("workspace file changed before read: %q", path)
+	}
+	content, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	finished, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !sameFileState(expected, finished) {
+		return nil, fmt.Errorf("workspace file changed during read: %q", path)
+	}
+	return content, nil
+}
+
+func sameFileState(expected, actual os.FileInfo) bool {
+	return os.SameFile(expected, actual) && expected.Mode() == actual.Mode() && expected.Size() == actual.Size() && expected.ModTime() == actual.ModTime()
 }
 
 func Materialize(root string, manifest model.WorkspaceManifest, dataStore *store.Store) error {

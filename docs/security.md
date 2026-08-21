@@ -37,6 +37,11 @@ This closes the basename bypass and materially reduces path time-of-check/time-o
 
 The runner uses a new process group and kills the group on timeout or cancellation. Experiments operate on copied temporary workspaces and do not intentionally modify the original workspace.
 
+Workspace capture rejects files with multiple hard links on Linux and checks
+file identity and metadata before and after reading. A pathname replacement or
+metadata race fails closed instead of ingesting an unstable or potentially
+outside-workspace file.
+
 This is not a full malicious-code sandbox. Use an independently hardened VM or container when executing untrusted code.
 
 ## Archive safety
