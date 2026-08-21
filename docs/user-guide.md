@@ -192,9 +192,21 @@ fails the check without hiding the report.
 
 ```bash
 worldbisect verify result.wbc
+# To require a separately retained trust root:
+worldbisect verify --public-key causal_ed25519_public.pem result.wbc
 ```
 
-Optionally supply an independently trusted public key.
+The command prints a JSON result and exits non-zero when verification fails. A
+v2 certificate contains the proof status, model name, capture identifiers, and
+SHA-256 digests of the good capture, bad capture, experiment set, and factor
+set. It does not contain raw command output, workspace files, factor values, or
+experiment details. The `trust` field distinguishes the embedded signing key
+from a key matched with `--public-key`; an embedded key proves integrity, but
+not that the key belongs to a person or organization. The `next_action` field
+states what to review after a valid check. A changed claim, signature, or
+evidence digest causes verification to fail. Older v1 certificates remain
+readable, but report that evidence digests are unavailable and should be
+reviewed against their original evidence bundle.
 
 ## Audit
 

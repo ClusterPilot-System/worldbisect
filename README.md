@@ -145,6 +145,12 @@ captures, signed certificate, Markdown report, JSON report, and checksummed
 manifest. Raw command output, workspace content blobs, and secret-looking
 values are intentionally excluded.
 
+`verify` performs an offline signature check and returns a machine-readable
+`valid`, `trust`, and `next_action` result. Use `--public-key` when the signing
+key must also match an independently retained trust root. Current v2
+certificates carry hashes for the captures, experiments, and factor set rather
+than copying raw evidence; changing any signed claim or digest fails closed.
+
 For CI integrations, `compare` and `explain` also support `--format junit` and
 `--format sarif`. JUnit marks `PROVEN` and `SUPPORTED` as failures and the
 other statuses as explicit skips. SARIF emits an `error` for `PROVEN`, a
