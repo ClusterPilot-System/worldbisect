@@ -196,8 +196,11 @@ func runCompare(args []string, stdout io.Writer) error {
 	bad := set.String("bad", "", "bad capture ID or bundle")
 	repetitions := set.Int("repetitions", 3, "experiment repetitions")
 	maxExperiments := set.Int("max-experiments", 128, "experiment budget")
-	format := set.String("format", "text", "text or json")
+	format := set.String("format", "text", "text, json, junit, or sarif")
 	certificate := set.String("certificate", "", "certificate output path")
+	reportURL := set.String("report-url", "", "stable URL for the report")
+	bundleURL := set.String("bundle-url", "", "stable URL for the diagnostic bundle")
+	failOn := set.String("fail-on", "never", "exit 1 for never, proven, supported, correlated, or any")
 	if err := set.Parse(flags); err != nil {
 		return err
 	}
@@ -241,7 +244,7 @@ func runCompare(args []string, stdout io.Writer) error {
 		}
 	}
 	if analysis != nil {
-		return writeAnalysis(stdout, analysis, *format)
+		return finishAnalysis(stdout, analysis, *format, report.OutputLinks{ReportURL: *reportURL, BundleURL: *bundleURL}, *failOn)
 	}
 	return err
 }
@@ -257,7 +260,10 @@ func runExplain(args []string, stdout io.Writer) error {
 	set := flag.NewFlagSet("explain", flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	storePath := set.String("store", defaultStore(), "store directory")
-	format := set.String("format", "text", "text or json")
+	format := set.String("format", "text", "text, json, junit, or sarif")
+	reportURL := set.String("report-url", "", "stable URL for the report")
+	bundleURL := set.String("bundle-url", "", "stable URL for the diagnostic bundle")
+	failOn := set.String("fail-on", "never", "exit 1 for never, proven, supported, correlated, or any")
 	if err := set.Parse(args); err != nil {
 		return err
 	}
@@ -272,10 +278,24 @@ func runExplain(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return writeAnalysis(stdout, analysis, *format)
+	return finishAnalysis(stdout, analysis, *format, report.OutputLinks{ReportURL: *reportURL, BundleURL: *bundleURL}, *failOn)
 }
 
-func writeAnalysis(stdout io.Writer, analysis *model.Analysis, format string) error {
+func finishAnalysis(stdout io.Writer, analysis *model.Analysis, format string, links report.OutputLinks, failOn string) error {
+	if err := writeAnalysis(stdout, analysis, format, links); err != nil {
+		return err
+	}
+	fails, err := report.ShouldFail(analysis.Status, failOn)
+	if err != nil {
+		return err
+	}
+	if fails {
+		return fmt.Errorf("analysis status %s matched --fail-on %s", analysis.Status, failOn)
+	}
+	return nil
+}
+
+func writeAnalysis(stdout io.Writer, analysis *model.Analysis, format string, links report.OutputLinks) error {
 	switch format {
 	case "text", "markdown":
 		_, err := fmt.Fprint(stdout, report.Markdown(analysis))
@@ -287,8 +307,22 @@ func writeAnalysis(stdout io.Writer, analysis *model.Analysis, format string) er
 		}
 		_, err = stdout.Write(encoded)
 		return err
+	case "junit":
+		encoded, err := report.JUnit(analysis, links)
+		if err != nil {
+			return err
+		}
+		_, err = stdout.Write(encoded)
+		return err
+	case "sarif":
+		encoded, err := report.SARIF(analysis, links)
+		if err != nil {
+			return err
+		}
+		_, err = stdout.Write(encoded)
+		return err
 	default:
-		return fmt.Errorf("unsupported analysis format %q (use text, markdown, or json)", format)
+		return fmt.Errorf("unsupported analysis format %q (use text, markdown, junit, or sarif)", format)
 	}
 }
 

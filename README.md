@@ -145,6 +145,13 @@ captures, signed certificate, Markdown report, JSON report, and checksummed
 manifest. Raw command output, workspace content blobs, and secret-looking
 values are intentionally excluded.
 
+For CI integrations, `compare` and `explain` also support `--format junit` and
+`--format sarif`. JUnit marks `PROVEN` and `SUPPORTED` as failures and the
+other statuses as explicit skips. SARIF emits an `error` for `PROVEN`, a
+`warning` for `SUPPORTED` or `CORRELATED`, and a `note` for `UNPROVEN`.
+Formatting alone exits with code `0`; use `--fail-on proven`, `supported`,
+`correlated`, or `any` to make selected statuses exit with code `1`.
+
 ## Commands
 
 ```text

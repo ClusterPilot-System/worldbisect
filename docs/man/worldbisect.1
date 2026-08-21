@@ -46,6 +46,11 @@ reports, and checksummed manifest.
 .B import
 Import and validate a capture or diagnostic bundle. Use
 \fB--certificate-output PATH\fR to retain an imported diagnostic certificate.
+.PP
+Use \fB--format junit\fR or \fB--format sarif\fR with BcompareR or
+BexplainR for CI output. Formatting exits zero; use
+\fB--fail-on proven|supported|correlated|any\fR to make selected statuses exit
+one.
 .TP
 .B verify
 Verify an Ed25519 causal certificate.

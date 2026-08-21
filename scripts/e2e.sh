@@ -65,6 +65,21 @@ import json, sys
 value=json.load(open(sys.argv[1]))
 assert value["valid"] is True, value
 PY
+"$work/bin/worldbisect" explain --store "$store" --format junit --report-url https://ci.example/report --bundle-url https://ci.example/bundle "$analysis_id" > "$work/analysis.junit.xml"
+"$work/bin/worldbisect" explain --store "$store" --format sarif --report-url https://ci.example/report --bundle-url https://ci.example/bundle "$analysis_id" > "$work/analysis.sarif"
+if "$work/bin/worldbisect" explain --store "$store" --format sarif --fail-on proven "$analysis_id" > "$work/fail-on.sarif" 2> "$work/fail-on.err"; then
+  echo "--fail-on proven did not fail for PROVEN analysis" >&2
+  exit 1
+fi
+python3 - "$work/analysis.junit.xml" "$work/analysis.sarif" <<'PY'
+import json, sys, xml.etree.ElementTree as ET
+junit=ET.parse(sys.argv[1]).getroot()
+assert junit.attrib["failures"] == "1", junit.attrib
+sarif=json.load(open(sys.argv[2]))
+assert sarif["version"] == "2.1.0", sarif
+assert sarif["runs"][0]["results"][0]["ruleId"] == "worldbisect/PROVEN", sarif
+assert sarif["runs"][0]["results"][0]["properties"]["report_url"] == "https://ci.example/report", sarif
+PY
 "$work/bin/worldbisect" verify "$work/result.wbc" > "$work/verify.json"
 python3 - "$work/verify.json" <<'PY'
 import json, sys
@@ -77,6 +92,14 @@ import json, sys
 value=json.load(open(sys.argv[1]))
 assert value["valid"] is True, value
 PY
+
+if [[ -n "${WORLDBISECT_E2E_ARTIFACT_DIR:-}" ]]; then
+  mkdir -p "$WORLDBISECT_E2E_ARTIFACT_DIR"
+  cp "$work/analysis.json" "$WORLDBISECT_E2E_ARTIFACT_DIR/analysis.json"
+  cp "$work/analysis.junit.xml" "$WORLDBISECT_E2E_ARTIFACT_DIR/analysis.junit.xml"
+  cp "$work/analysis.sarif" "$WORLDBISECT_E2E_ARTIFACT_DIR/analysis.sarif"
+  cp "$work/diagnosis.wdiag" "$WORLDBISECT_E2E_ARTIFACT_DIR/diagnosis.wdiag"
+fi
 
 config="$work/config.json"
 init_output=$("$work/bin/worldbisectd" init --config "$config" --data-dir "$work/daemon-data" --listen 127.0.0.1:0)

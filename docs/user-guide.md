@@ -135,6 +135,24 @@ output, workspace content blobs, command arguments, sensitive paths, and
 secret-looking environment values. Its manifest checks every entry and import
 validates the certificate and report before persistence.
 
+## CI output and exit codes
+
+`compare` and `explain` support these machine-readable formats:
+
+```bash
+worldbisect explain --store /tmp/wb-store --format junit <analysis-id> > analysis.junit.xml
+worldbisect explain --store /tmp/wb-store --format sarif <analysis-id> > analysis.sarif
+```
+
+JUnit reports `PROVEN` and `SUPPORTED` as failures; `CORRELATED` and
+`UNPROVEN` are explicit skips. SARIF reports `PROVEN` as an error,
+`SUPPORTED`/`CORRELATED` as warnings, and `UNPROVEN` as a note. Report
+formatting exits `0` regardless of proof status. Add `--fail-on proven`,
+`--fail-on supported`, `--fail-on correlated`, or `--fail-on any` when the CI
+job must exit `1` for that status threshold. Operational errors always exit
+`1`. `--report-url` and `--bundle-url` add stable links to JUnit properties and
+SARIF result properties without embedding sensitive data.
+
 ## Verify certificate
 
 ```bash
