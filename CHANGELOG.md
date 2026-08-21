@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and the project follows Semantic Versioning for its public contracts.
 
+## [1.1.0]
+
+### Added
+
+- Production-ready GitHub Action for deterministic workspace diagnosis.
+- Markdown, JSON, JUnit, and SARIF Action outputs with redacted diagnostic handoffs.
+- Explicit Action failure policies and stable analysis outputs.
+- Public five-minute demo workflow and reproducible `PROVEN` fixture.
+- Hardened workspace capture against hardlinks, symlinks, and in-place races.
+
+### Security
+
+- Action downloads verify the selected immutable release archive before execution.
+- GitHub workflows use explicit permissions and immutable action references.
+
 ## [1.0.0]
 
 ### Added
