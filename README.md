@@ -139,13 +139,13 @@ and pin the Action to a reviewed commit or immutable release:
 ```yaml
 - name: Diagnose workspace difference
   id: worldbisect
-  uses: ClusterPilot-System/worldbisect@32ddbdfd4548afda1a44ec15ac26225e858c3591
+  uses: ClusterPilot-System/worldbisect@v1.1.0
   with:
     command: ./check.sh
     good-workspace: demo/good
     bad-workspace: demo/bad
     version: 1.1.0
-    sha256: 17d7be9fa12de3c3bff2897e22e9af2da7d724e7b36d13b05946cd4255afaaac
+    sha256: 74602fb5a1894eaf63ef12178fa5d9ff53b6369a9277f17021c3733f18f7d757
     fail-on: proven
 ```
 
