@@ -3,7 +3,9 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      # Major compatibility tags such as v1 deliberately remain movable and
+      # must not create a GitHub Release. Only full SemVer tags are releases.
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       tag:
@@ -113,7 +115,12 @@ jobs:
           if ! grep -q '[^[:space:]]' "$notes"; then
             printf 'WorldBisect %s\n' "$VERSION" > "$notes"
           fi
+          # Immutable Releases locks assets and the release tag at publication
+          # time. Upload every asset to a draft first, then publish once the
+          # draft is complete.
           gh release create "$TAG" dist/* \
             --title "WorldBisect ${VERSION}" \
             --notes-file "$notes" \
+            --draft \
             --verify-tag
+          gh release edit "$TAG" --draft=false

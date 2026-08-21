@@ -46,6 +46,15 @@ See `docs/security.md` and `docs/threat-model.md`.
 
 ## Release integrity
 
-Official releases are produced from immutable tags by GitHub Actions. Release artifacts include SHA-256 checksums, an SPDX SBOM, and a GitHub artifact attestation.
+Repository-level GitHub Immutable Releases are enabled for future official
+releases. A release is assembled as a draft, with all assets attached, and then
+published so its release tag and assets are locked by GitHub. Existing releases
+published before this setting (`v1.0.0`, `v1.1.0`, and `v1.1.1`) are retained
+without rewriting, because GitHub does not apply immutability retroactively.
+
+Official releases include SHA-256 checksums, an SPDX SBOM, and a GitHub artifact
+attestation. The `v1` Action tag is a moving compatibility tag; security-
+critical consumers should pin a full reviewed commit SHA and verify the matching
+release checksums and attestation.
 
 Consumers should verify both checksums and provenance before installation.

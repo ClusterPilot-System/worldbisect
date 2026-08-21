@@ -33,7 +33,11 @@ The Go module intentionally has no third-party module dependencies. Release tool
 
 ## Release provenance
 
-Official releases are built from immutable tags by GitHub Actions. The release workflow:
+Official releases are built by GitHub Actions. Repository-level GitHub Immutable
+Releases are enabled for future publications; the workflow uploads assets to a
+draft before publication locks the release tag and assets. Earlier published
+releases are retained as historical evidence and are not rewritten because
+GitHub does not apply release immutability retroactively. The release workflow:
 
 1. validates the source tree;
 2. runs unit, race, integration, and end-to-end tests;
@@ -42,3 +46,7 @@ Official releases are built from immutable tags by GitHub Actions. The release w
 5. publishes a GitHub artifact attestation backed by GitHub OIDC and Sigstore.
 
 Consumers should verify `SHA256SUMS` and the GitHub artifact attestation before installing release binaries.
+
+The `v1` Action tag is a moving compatible-release pointer, not a fixed trust
+root. Security-critical consumers must pin a reviewed full commit SHA and
+verify the architecture-matching archive digest and GitHub attestation.

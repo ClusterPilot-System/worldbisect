@@ -39,6 +39,8 @@ Protect `main` with a GitHub ruleset or branch-protection rule:
 ## Release
 
 - [ ] Tag is annotated or cryptographically signed.
+- [ ] GitHub Immutable Releases are enabled for this repository or enforced by the organization.
+- [ ] All release assets are attached to a draft before it is published and locked.
 - [ ] Release workflow completed successfully.
 - [ ] Release is neither draft nor prerelease.
 - [ ] `SHA256SUMS` verifies every published binary artifact.

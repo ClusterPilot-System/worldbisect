@@ -139,7 +139,7 @@ and pin the Action to a reviewed commit or immutable release:
 ```yaml
 - name: Diagnose workspace difference
   id: worldbisect
-  uses: ClusterPilot-System/worldbisect@v1.1.0
+  uses: ClusterPilot-System/worldbisect@v1
   with:
     command: ./check.sh
     good-workspace: demo/good
@@ -157,6 +157,45 @@ repository:
     # Optional explicit Linux AMD64 digest for v1.1.0:
     # sha256: 74602fb5a1894eaf63ef12178fa5d9ff53b6369a9277f17021c3733f18f7d757
 ```
+
+### Action trust pins
+
+`v1` is the maintained compatibility tag for the latest compatible 1.x Action
+release. It is intentionally movable and initially points to the reviewed
+`v1.1.1` release commit. Use it when receiving compatible updates matters more
+than pinning a single revision:
+
+```yaml
+uses: ClusterPilot-System/worldbisect@v1
+```
+
+For security-critical workflows, pin the Action to the full reviewed commit
+SHA and explicitly verify the release archive that it downloads. This example
+pins the `v1.1.1` Action commit and its Linux AMD64 archive:
+
+```yaml
+- uses: ClusterPilot-System/worldbisect@65e217a1e759bd35a0039d5dfcb17f8aebec01d2 # v1.1.1
+  with:
+    command: ./check.sh
+    good-workspace: demo/good
+    bad-workspace: demo/bad
+    version: 1.1.1
+    sha256: 5725bd04acdd9bedefddf899fd1bae19f914dd2d8db3d60eae4156d0324202c6
+```
+
+Use the matching architecture-specific SHA-256 from the release's
+`SHA256SUMS`; do not copy the AMD64 digest to an ARM64 runner. After download,
+verify GitHub provenance as well:
+
+```bash
+gh attestation verify worldbisect_1.1.1_linux_amd64.tar.gz \
+  --repo ClusterPilot-System/worldbisect
+```
+
+GitHub Immutable Releases are enabled for future published releases. GitHub
+does not retroactively lock earlier published releases, including `v1.0.0`,
+`v1.1.0`, and `v1.1.1`; preserve those historical tags and use their reviewed
+commit SHAs when an immutable reference is required.
 
 `good-workspace` is the relative path to the workspace where the command is
 known to pass. `bad-workspace` is the relative path to the workspace where the
@@ -306,6 +345,10 @@ Official release artifacts include:
 - SPDX SBOM;
 - `SHA256SUMS`;
 - GitHub artifact attestation.
+
+Full semantic release tags are published as immutable GitHub Releases. The
+moving `v1` compatibility tag is not a GitHub Release and is updated only to a
+reviewed compatible release commit.
 
 Verify checksums:
 

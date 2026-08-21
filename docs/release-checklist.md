@@ -32,6 +32,9 @@
 ## GitHub
 
 - [ ] Actions are pinned to immutable commit SHAs.
+- [ ] GitHub Immutable Releases are enabled for the repository or organization.
+- [ ] Full release assets are uploaded to a draft before publishing the immutable release.
+- [ ] The `v1` compatibility tag points to the intended reviewed 1.x release commit.
 - [ ] Release workflow has minimum explicit permissions.
 - [ ] CodeQL is enabled.
 - [ ] Tag is immutable and points to the reviewed commit.

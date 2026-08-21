@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and the project follows Semantic Versioning for its public contracts.
 
+## [Unreleased]
+
+### Security
+
+- Future GitHub releases are published through the repository's Immutable
+  Releases setting using a draft-first asset upload flow.
+- Documented the moving `v1` Action compatibility tag separately from full
+  commit-SHA pins and archive/attestation verification for security-critical
+  workflows.
+
 ## [1.1.1]
 
 ### Changed
