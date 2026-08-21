@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and the project follows Semantic Versioning for its public contracts.
 
+## [1.1.1]
+
+### Changed
+
+- The v1.1.1 Action release supplies the verified v1.1.0 Linux archive digest
+  by default; custom releases and repositories still require an explicit
+  `sha256`.
+- GitHub Action runs publish the diagnosis, report link, and diagnostic artifact
+  link in `GITHUB_STEP_SUMMARY` and expose artifact URLs as outputs.
+
+### Fixed
+
+- Action failure handling now reports a clear operational failure when a
+  diagnosis output is unavailable instead of masking it with a secondary file
+  error.
+
 ## [1.1.0]
 
 ### Added

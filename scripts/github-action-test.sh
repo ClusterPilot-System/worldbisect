@@ -34,6 +34,7 @@ GO111MODULE=off go build -o "$tmp/check" "$tmp/check.go"
 run_action() {
   local fail_policy=$1 output_dir=$2
   mkdir -p "$output_dir"
+  local sha256=${INPUT_SHA256_TEST:-0000000000000000000000000000000000000000000000000000000000000000}
   GITHUB_WORKSPACE="$tmp" \
   GITHUB_OUTPUT="$output_dir/outputs" \
   WORLD_BISECT_OUTPUT_DIR="$output_dir" \
@@ -41,13 +42,16 @@ run_action() {
   INPUT_COMMAND="$tmp/check" \
   INPUT_GOOD_WORKSPACE=good \
   INPUT_BAD_WORKSPACE=bad \
-  INPUT_SHA256=0000000000000000000000000000000000000000000000000000000000000000 \
+  INPUT_SHA256="$sha256" \
   INPUT_ORACLE=exit=0 \
   INPUT_REPETITIONS=1 \
   INPUT_MAX_EXPERIMENTS=8 \
   INPUT_FAIL_ON="$fail_policy" \
   bash scripts/github-action.sh
 }
+
+INPUT_SHA256_TEST='' run_action never "$tmp/no-sha256"
+grep -q '^status=PROVEN$' "$tmp/no-sha256/outputs"
 
 run_action never "$tmp/pass"
 test -s "$tmp/pass/artifacts/report.md"
