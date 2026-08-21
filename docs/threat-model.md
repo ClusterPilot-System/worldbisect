@@ -40,6 +40,10 @@ Controls: loopback default, bearer authentication, hashed stored tokens, constan
 
 Controls: canonical absolute paths, no basename matching, no `PATH` authorization, final-symlink rejection, opened-file-descriptor binding, inode and digest revalidation.
 
+Workspace capture separately rejects Linux hardlinks and verifies file identity
+and metadata before and after reads, preventing pathname replacement and
+unstable file ingestion from becoming stored evidence.
+
 ### Working-directory replacement
 
 Controls: canonical directory authorization, directory descriptor binding, pre-execution identity validation.

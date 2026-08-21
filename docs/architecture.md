@@ -52,7 +52,7 @@ On Linux AMD64, a bounded `ptrace` tracer records selected filesystem-related sy
 
 ### Workspace capture
 
-The workspace scanner records regular files, directories, and symbolic links using relative paths. It stores content hashes and file mode, rejects traversal, does not follow symlink targets, and enforces file and byte quotas.
+The workspace scanner records regular files, directories, and symbolic links using relative paths. It stores content hashes and file mode, rejects traversal and Linux hardlinks, verifies file identity/metadata around reads, does not follow symlink targets, and enforces file and byte quotas.
 
 ### Comparator
 
