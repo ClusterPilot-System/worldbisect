@@ -1,5 +1,5 @@
 Name:           worldbisect
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Git bisect for runtime reality
 License:        Apache-2.0
@@ -33,5 +33,5 @@ make install DESTDIR=%{buildroot}
 /usr/lib/tmpfiles.d/worldbisect.conf
 
 %changelog
-* Mon Aug 17 2026 WorldBisect contributors - 1.0.0-1
+* Mon Aug 17 2026 WorldBisect contributors - 1.1.0-1
 - Initial release

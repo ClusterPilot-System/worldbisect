@@ -18,7 +18,7 @@ inputs:
   version:
     description: WorldBisect release version without the leading v
     required: false
-    default: '1.0.0'
+    default: '1.1.0'
   sha256:
     description: SHA-256 of the selected immutable Linux release archive
     required: true

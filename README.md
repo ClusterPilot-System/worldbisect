@@ -53,7 +53,7 @@ sudo ./scripts/install.sh
 ### Debian package
 
 ```bash
-sudo dpkg -i worldbisect_1.0.0_linux_amd64.deb
+sudo dpkg -i worldbisect_1.1.0_linux_amd64.deb
 ```
 
 ### From source
@@ -123,6 +123,40 @@ The text report is written for operators who need an actionable answer. It
 also includes a proof explanation, evidence boundaries, and technical IDs for
 support. Use `--format json` when a machine needs the stable structured
 contract instead of the human-readable report.
+
+## Try the GitHub Action in 5 minutes
+
+The fastest way to see the causal proof is the public
+[`worldbisect-demo`](https://github.com/ClusterPilot-System/worldbisect-demo)
+repository. Open its **Actions** tab, run **WorldBisect demo**, and inspect the
+workflow summary and `worldbisect-diagnostic` artifact. The intentionally bad
+workspace differs only in `config.txt`; a successful run reports `PROVEN` and
+identifies that file as the smallest tested cause.
+
+To use the Action in your own Linux workflow, keep the two workspaces explicit
+and pin the Action to a reviewed commit or immutable release:
+
+```yaml
+- name: Diagnose workspace difference
+  id: worldbisect
+  uses: ClusterPilot-System/worldbisect@32ddbdfd4548afda1a44ec15ac26225e858c3591
+  with:
+    command: ./check.sh
+    good-workspace: demo/good
+    bad-workspace: demo/bad
+    version: 1.1.0
+    sha256: 17d7be9fa12de3c3bff2897e22e9af2da7d724e7b36d13b05946cd4255afaaac
+    fail-on: proven
+```
+
+The release digest above is for the Linux AMD64 archive. Copy the ARM64
+digest from the release when the runner architecture is ARM64. The Action
+uploads the Markdown, JSON, JUnit, SARIF, certificate, and redacted handoff
+as one artifact before applying the `fail-on` policy. It does not repair the
+workspace or upload raw workspace contents automatically.
+
+For a reproducible local terminal demonstration and a recording checklist, see
+[`docs/quickstart-demo.md`](docs/quickstart-demo.md).
 
 Large or long-running analyses are bounded by explicit workspace file/byte,
 output, timeout, factor, and experiment limits. Use `--progress` to receive

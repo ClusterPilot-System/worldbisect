@@ -201,7 +201,7 @@ files outside those workspaces automatically.
     command: ./ci/check.sh
     good-workspace: fixtures/good
     bad-workspace: fixtures/bad
-    version: 1.0.0
+    version: 1.1.0
     sha256: 17d7be9fa12de3c3bff2897e22e9af2da7d724e7b36d13b05946cd4255afaaac
     fail-on: proven
 ```
