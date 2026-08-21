@@ -188,26 +188,29 @@ SARIF result properties without embedding sensitive data.
 ## GitHub Action
 
 The repository exposes a composite action for Linux GitHub runners. It downloads
-the selected WorldBisect release only after verifying the caller-provided
-SHA-256, captures only the two explicitly selected workspace paths, and uploads
+the selected WorldBisect release only after verifying an explicit SHA-256 or the
+documented built-in digest for the official default release, captures only the
+two explicitly selected workspace paths, and uploads
 the Markdown/JSON/JUnit/SARIF reports, certificate, and redacted diagnostic
 bundle as one artifact. It never collects kubeconfigs, credentials, or other
 files outside those workspaces automatically.
 
 ```yaml
 - name: Diagnose workspace difference
-  uses: ClusterPilot-System/worldbisect@<commit-sha>
+  uses: ClusterPilot-System/worldbisect@65e217a1e759bd35a0039d5dfcb17f8aebec01d2 # v1.1.1
   with:
     command: ./ci/check.sh
     good-workspace: fixtures/good
     bad-workspace: fixtures/bad
-    version: 1.1.0
-    sha256: 74602fb5a1894eaf63ef12178fa5d9ff53b6369a9277f17021c3733f18f7d757
+    version: 1.1.1
+    sha256: 5725bd04acdd9bedefddf899fd1bae19f914dd2d8db3d60eae4156d0324202c6
     fail-on: proven
 ```
 
-Pin the action reference to a reviewed commit and copy the SHA-256 matching the
-Linux runner architecture from the signed release `SHA256SUMS`. On pull
+For security-critical automation, pin the action reference to a reviewed full
+commit SHA and copy the SHA-256 matching the Linux runner architecture from the
+release `SHA256SUMS`. The `v1` tag is a compatible-update channel and can move;
+it is not equivalent to a fixed commit SHA. On pull
 requests from forks, the action has no automatic access to repository secrets;
 the command and workspace inputs must still be safe for untrusted source code.
 The `fail-on` policy is applied only after evidence upload, so a proven result
