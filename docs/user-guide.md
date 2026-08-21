@@ -65,6 +65,13 @@ worldbisect compare \
 
 WorldBisect imports bundles when a path is supplied, compares the sessions, reruns the baselines, tests candidate groups, minimizes a supported factor set, reverses the intervention direction, and records all experiments.
 
+Workspace factors are limited to regular file content/presence, permission
+bits, directories, and relative symlinks whose targets remain inside the
+workspace. Absolute targets, traversal targets, unsupported filesystem objects,
+and symlink escapes are reported as evidence boundaries and are never applied.
+Experiments run in fresh temporary directories; the original workspaces are
+not modified.
+
 ## Result states
 
 The default text report is intended for normal operators. It presents the

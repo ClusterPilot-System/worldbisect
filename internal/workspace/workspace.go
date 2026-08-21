@@ -101,6 +101,11 @@ func Scan(root string, dataStore *store.Store, maxFiles int, maxBytes int64) (mo
 				return err
 			}
 			item.Digest = digestString(item.LinkTarget)
+			if err := validateLinkTarget(relative, item.LinkTarget); err != nil {
+				// Preserve the observation for comparison, but make it an
+				// explicit boundary instead of an intervenable factor.
+				item.Type = "unsupported"
+			}
 		default:
 			item.Type = "unsupported"
 		}
@@ -148,6 +153,11 @@ func Apply(root, relative string, entry model.WorkspaceEntry, present bool, data
 	if err != nil {
 		return err
 	}
+	if present && entry.Type == "symlink" {
+		if err := validateLinkTarget(relative, entry.LinkTarget); err != nil {
+			return err
+		}
+	}
 	if err := removeExisting(path); err != nil {
 		return err
 	}
@@ -160,7 +170,10 @@ func Apply(root, relative string, entry model.WorkspaceEntry, present bool, data
 	mode := os.FileMode(entry.Mode)
 	switch entry.Type {
 	case "dir":
-		return os.MkdirAll(path, mode.Perm())
+		if err := os.MkdirAll(path, mode.Perm()); err != nil {
+			return err
+		}
+		return os.Chmod(path, mode.Perm())
 	case "symlink":
 		if entry.LinkTarget == "" {
 			return errors.New("symlink target missing")
@@ -171,7 +184,10 @@ func Apply(root, relative string, entry model.WorkspaceEntry, present bool, data
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(path, content, mode.Perm())
+		if err := os.WriteFile(path, content, mode.Perm()); err != nil {
+			return err
+		}
+		return os.Chmod(path, mode.Perm())
 	default:
 		return fmt.Errorf("unsupported workspace entry type %q", entry.Type)
 	}
@@ -195,6 +211,18 @@ func unsafeRelative(relative string) bool {
 	}
 	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(relative)))
 	return clean != relative || clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../")
+}
+
+func validateLinkTarget(relative, target string) error {
+	if target == "" || filepath.IsAbs(target) || strings.Contains(target, "\\") {
+		return errors.New("symlink target must be a non-empty relative Unix path")
+	}
+	linkPath := filepath.ToSlash(filepath.Join(filepath.Dir(relative), target))
+	clean := filepath.ToSlash(filepath.Clean(linkPath))
+	if clean == ".." || strings.HasPrefix(clean, "../") {
+		return errors.New("symlink target escapes workspace")
+	}
+	return nil
 }
 
 func removeExisting(path string) error {
