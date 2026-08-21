@@ -99,25 +99,35 @@ worldbisect compare \
 
 Expected conclusion for a normal user:
 
-```text
-WorldBisect diagnosis
-=====================
-result: PROVEN — cause confirmed
+```markdown
+# WorldBisect diagnosis
 
-Detected cause:
-- workspace file "config.txt" differs between the successful and failing run
+**Status:** `PROVEN`
 
-Next steps:
+The failing run was repaired by changing the detected factor, and the failure returned when that change was reversed. The factor was also minimal within the tested model.
+
+## Confirmed or suspected cause
+
+- `workspace:config.txt` — workspace file "config.txt" differs between the successful and failing run
+
+## Next steps
+
 1. Make a backup of "config.txt" before editing or replacing it.
-2. Open "config.txt" in the failing workspace and compare it with the known-good copy.
-3. Restore or correct "config.txt" so it matches the known-good configuration.
+2. Open "config.txt" in the failing workspace and compare it with the known-good copy; check the content, file presence, permissions, and link target if applicable.
+3. Restore or correct "config.txt" so it matches the known-good configuration. Do not change unrelated files.
 4. Run the original command again and confirm that the oracle passes.
+5. If the command still fails, create fresh good and bad captures and attach this analysis ID when contacting support.
 ```
 
 The text report is written for operators who need an actionable answer. It
 also includes a proof explanation, evidence boundaries, and technical IDs for
 support. Use `--format json` when a machine needs the stable structured
 contract instead of the human-readable report.
+
+The JSON output is the versioned `worldbisect.analysis-report.v1` contract.
+Markdown output is also stable and can be pasted into GitHub pull requests or
+support tickets. Both formats are derived from the same report model and omit
+captured command output and factor values.
 
 ## Commands
 

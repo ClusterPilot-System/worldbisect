@@ -100,7 +100,14 @@ No sound causal claim can be made. Read the limitations and experiment diagnosti
 worldbisect explain --store /tmp/wb-store <analysis-id>
 ```
 
-Use `--format json` for automation.
+The default output is stable Markdown and can be pasted directly into a GitHub
+pull request or support ticket. Use `--format markdown` explicitly when a
+script needs to document the chosen presentation. Use `--format json` for the
+versioned `worldbisect.analysis-report.v1` automation contract. Its top-level
+fields are `schema_version`, `status`, `proof`, `cause`, `boundaries`,
+`limitations`, `next_steps`, and `evidence`. The report deliberately omits
+captured command output and factor values; use a reviewed diagnostic bundle for
+that sensitive evidence.
 
 ## Export and import
 

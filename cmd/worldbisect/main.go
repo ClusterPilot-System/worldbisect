@@ -241,10 +241,7 @@ func runCompare(args []string, stdout io.Writer) error {
 		}
 	}
 	if analysis != nil {
-		if *format == "json" {
-			return writeJSON(stdout, analysis)
-		}
-		fmt.Fprint(stdout, report.Analysis(analysis))
+		return writeAnalysis(stdout, analysis, *format)
 	}
 	return err
 }
@@ -275,11 +272,24 @@ func runExplain(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if *format == "json" {
-		return writeJSON(stdout, analysis)
+	return writeAnalysis(stdout, analysis, *format)
+}
+
+func writeAnalysis(stdout io.Writer, analysis *model.Analysis, format string) error {
+	switch format {
+	case "text", "markdown":
+		_, err := fmt.Fprint(stdout, report.Markdown(analysis))
+		return err
+	case "json":
+		encoded, err := report.JSON(analysis)
+		if err != nil {
+			return err
+		}
+		_, err = stdout.Write(encoded)
+		return err
+	default:
+		return fmt.Errorf("unsupported analysis format %q (use text, markdown, or json)", format)
 	}
-	fmt.Fprint(stdout, report.Analysis(analysis))
-	return nil
 }
 
 func runExport(args []string, stdout io.Writer) error {
