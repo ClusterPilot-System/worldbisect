@@ -163,6 +163,22 @@ func TestJUnitAndSARIFContractsCoverStatuses(t *testing.T) {
 			if result.RuleID != "worldbisect/"+string(status) || result.Properties["status"] != string(status) {
 				t.Fatalf("invalid SARIF result: %s", sarif)
 			}
+			var locationDocument struct {
+				Runs []struct {
+					Results []struct {
+						Locations []struct {
+							PhysicalLocation struct {
+								ArtifactLocation struct {
+									URI string `json:"uri"`
+								} `json:"artifactLocation"`
+							} `json:"physicalLocation"`
+						} `json:"locations"`
+					} `json:"results"`
+				} `json:"runs"`
+			}
+			if err := json.Unmarshal(sarif, &locationDocument); err != nil || len(locationDocument.Runs[0].Results[0].Locations) != 1 || locationDocument.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI != "worldbisect://analysis/ana_"+strings.ToLower(string(status)) {
+				t.Fatalf("SARIF location missing or unstable: %s", sarif)
+			}
 			if strings.Contains(string(junit), "supersecret") || strings.Contains(string(sarif), "supersecret") {
 				t.Fatal("diagnostic formats exposed secret text")
 			}
