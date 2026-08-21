@@ -145,15 +145,30 @@ and pin the Action to a reviewed commit or immutable release:
     good-workspace: demo/good
     bad-workspace: demo/bad
     version: 1.1.0
-    sha256: 74602fb5a1894eaf63ef12178fa5d9ff53b6369a9277f17021c3733f18f7d757
     fail-on: proven
 ```
 
-The release digest above is for the Linux AMD64 archive. Copy the ARM64
-digest from the release when the runner architecture is ARM64. The Action
-uploads the Markdown, JSON, JUnit, SARIF, certificate, and redacted handoff
-as one artifact before applying the `fail-on` policy. It does not repair the
-workspace or upload raw workspace contents automatically.
+For the official `ClusterPilot-System/worldbisect` `v1.1.0` release, the
+Action selects and verifies the correct built-in digest for Linux AMD64 or
+ARM64. You can still provide an explicit digest when using a custom release or
+repository:
+
+```yaml
+    # Optional explicit Linux AMD64 digest for v1.1.0:
+    # sha256: 74602fb5a1894eaf63ef12178fa5d9ff53b6369a9277f17021c3733f18f7d757
+```
+
+`good-workspace` is the relative path to the workspace where the command is
+known to pass. `bad-workspace` is the relative path to the workspace where the
+same command is known to fail. `oracle` describes how WorldBisect decides
+whether the command passed; the default is `exit=0`. Both workspaces must stay
+inside `GITHUB_WORKSPACE`.
+
+The Action writes the diagnosis to `$GITHUB_STEP_SUMMARY`, exposes the status
+and analysis ID as outputs, and links directly to the Markdown report and
+diagnostic artifact. It uploads the Markdown, JSON, JUnit, SARIF, certificate,
+and redacted handoff before applying the `fail-on` policy. It does not repair
+the workspace or upload raw workspace contents automatically.
 
 For a reproducible local terminal demonstration and a recording checklist, see
 [`docs/quickstart-demo.md`](docs/quickstart-demo.md).
