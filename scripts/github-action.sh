@@ -84,7 +84,8 @@ analysis_id=$(sed -n 's/.*"analysis_id": "\([^"]*\)".*/\1/p' "$json_report" | he
 "$binary" explain --store "$STORE" --format markdown --report-url "${INPUT_REPORT_URL:-}" --bundle-url "${INPUT_BUNDLE_URL:-}" "$analysis_id" >"$ARTIFACT_DIR/report.md"
 "$binary" explain --store "$STORE" --format junit --report-url "${INPUT_REPORT_URL:-}" --bundle-url "${INPUT_BUNDLE_URL:-}" "$analysis_id" >"$ARTIFACT_DIR/report.junit.xml"
 "$binary" explain --store "$STORE" --format sarif --report-url "${INPUT_REPORT_URL:-}" --bundle-url "${INPUT_BUNDLE_URL:-}" "$analysis_id" >"$ARTIFACT_DIR/report.sarif"
-"$binary" export --store "$STORE" --analysis "$analysis_id" --output "$ARTIFACT_DIR/diagnosis.wdiag" >/dev/null
+"$binary" handoff --store "$STORE" --analysis "$analysis_id" --preview >"$ARTIFACT_DIR/handoff-preview.json"
+"$binary" handoff --store "$STORE" --analysis "$analysis_id" --output "$ARTIFACT_DIR/diagnosis.wdiag" --confirm >/dev/null
 
 status=$(sed -n 's/.*"status": "\([^"]*\)".*/\1/p' "$json_report" | head -n 1)
 [[ -n "$status" ]] || fail 'WorldBisect did not return an analysis status'
