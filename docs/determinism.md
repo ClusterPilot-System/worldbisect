@@ -30,6 +30,23 @@ The 1.0 engine does not claim deterministic control over:
 
 These appear as limitations or correlated evidence.
 
+## Experiment cache
+
+Experiment results are cached only after a process result and oracle outcome
+have been fully observed. The key is a SHA-256 digest of the normalized good
+and bad worlds, selected factor values, command arguments and timeout, oracle,
+cache contract, and WorldBisect tool version/commit. Capture IDs and runtime
+timestamps are deliberately excluded, so equivalent inputs reuse the same
+entry.
+
+Incomplete, corrupt, or differently keyed entries are invalidated and never
+used as evidence. The cache is bounded at 64 MiB; eviction is deterministic by
+cache-key order, and cache read/write failures do not change an analysis result.
+Reports expose cache hits and misses. A cache hit reuses only the experiment
+outcome; the current analysis receives fresh experiment identity and capture
+references, and proof still requires the normal baseline, reverse, and
+minimality checks.
+
 ## IDs and timestamps
 
 Runtime entities use collision-resistant IDs and actual timestamps. These values are excluded from semantic proof comparison and normalized in portable artifacts where determinism is required.

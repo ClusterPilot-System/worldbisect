@@ -57,7 +57,7 @@ func (store *Store) Root() string { return store.root }
 func (store *Store) initialize() error {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
-	for _, directory := range []string{"captures", "analyses", "jobs", "idempotency", "blobs/sha256", "audit", "keys", "traces"} {
+	for _, directory := range []string{"captures", "analyses", "jobs", "idempotency", "experiment-cache", "blobs/sha256", "audit", "keys", "traces"} {
 		if err := os.MkdirAll(filepath.Join(store.root, directory), 0o750); err != nil {
 			return err
 		}

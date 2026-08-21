@@ -130,6 +130,8 @@ type ReportEvidence struct {
 	BadCaptureID    string `json:"bad_capture_id"`
 	FactorCount     int    `json:"factor_count"`
 	ExperimentCount int    `json:"experiment_count"`
+	CacheHits       int    `json:"cache_hits"`
+	CacheMisses     int    `json:"cache_misses"`
 }
 
 // Build derives every supported output format from one deterministic report value.
@@ -158,6 +160,12 @@ func Build(value *model.Analysis) AnalysisReport {
 	limitations := append(make([]string, 0, len(value.Limitations)), value.Limitations...)
 	sort.Strings(boundaries)
 	sort.Strings(limitations)
+	cacheHits := 0
+	for _, experiment := range value.Experiments {
+		if experiment.CacheHit {
+			cacheHits++
+		}
+	}
 	return AnalysisReport{
 		SchemaVersion: AnalysisReportSchemaVersion,
 		Format:        "worldbisect.analysis-report.v1",
@@ -178,6 +186,8 @@ func Build(value *model.Analysis) AnalysisReport {
 			BadCaptureID:    value.BadCaptureID,
 			FactorCount:     len(value.Factors),
 			ExperimentCount: len(value.Experiments),
+			CacheHits:       cacheHits,
+			CacheMisses:     len(value.Experiments) - cacheHits,
 		},
 		Summary: value.Summary,
 	}
@@ -201,6 +211,8 @@ func JUnit(value *model.Analysis, links OutputLinks) ([]byte, error) {
 		{Name: "analysis_id", Value: report.AnalysisID},
 		{Name: "status", Value: report.Status},
 		{Name: "schema_version", Value: fmt.Sprint(report.SchemaVersion)},
+		{Name: "cache_hits", Value: fmt.Sprint(report.Evidence.CacheHits)},
+		{Name: "cache_misses", Value: fmt.Sprint(report.Evidence.CacheMisses)},
 	}
 	if links.ReportURL != "" {
 		properties = append(properties, junitProperty{Name: "report_url", Value: links.ReportURL})
@@ -247,6 +259,8 @@ func SARIF(value *model.Analysis, links OutputLinks) ([]byte, error) {
 		"forward_verified": report.Proof.ForwardVerified,
 		"reverse_verified": report.Proof.ReverseVerified,
 		"minimal_in_model": report.Proof.MinimalInModel,
+		"cache_hits":       report.Evidence.CacheHits,
+		"cache_misses":     report.Evidence.CacheMisses,
 	}
 	if links.BundleURL != "" {
 		properties["bundle_url"] = links.BundleURL
@@ -335,7 +349,7 @@ func Markdown(value *model.Analysis) string {
 		}
 		fmt.Fprintln(&builder)
 	}
-	fmt.Fprintf(&builder, "\n<sub>Analysis `%s`; experiments: %d; factors: %d.</sub>\n", report.AnalysisID, report.Evidence.ExperimentCount, report.Evidence.FactorCount)
+	fmt.Fprintf(&builder, "\n<sub>Analysis `%s`; experiments: %d; factors: %d; cache hits: %d; cache misses: %d.</sub>\n", report.AnalysisID, report.Evidence.ExperimentCount, report.Evidence.FactorCount, report.Evidence.CacheHits, report.Evidence.CacheMisses)
 	return builder.String()
 }
 
