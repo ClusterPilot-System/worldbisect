@@ -215,7 +215,8 @@ func nextSteps(value *model.Analysis) []string {
 		}
 	}
 
-	steps := make([]string, 0, len(value.CausalFactors)+3)
+	// Avoid deriving an allocation capacity from untrusted collection lengths.
+	steps := make([]string, 0)
 	byID := make(map[string]model.Factor, len(value.Factors))
 	for _, factor := range value.Factors {
 		byID[factor.ID] = factor
