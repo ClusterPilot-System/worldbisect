@@ -18,4 +18,4 @@ No cause was confirmed within the supported test model.
 2. Capture a new good run and bad run with the same command, oracle, workspace scope, and stable inputs.
 3. Run the comparison again after removing uncontrolled differences where possible.
 
-<sub>Analysis `ana_proven`; experiments: 0; factors: 0.</sub>
+<sub>Analysis `ana_proven`; experiments: 0; factors: 0; cache hits: 0; cache misses: 0.</sub>

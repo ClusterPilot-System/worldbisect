@@ -189,6 +189,17 @@ func (engine *Engine) runIntervention(ctx context.Context, base, source *model.C
 }
 
 func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture, goodCaptureID string, command []string, selected []model.Factor, factorIDs []string, maxOutput int64, kind string) (model.Experiment, bool, error) {
+	cacheKey := experimentCacheKey(base, source, goodCaptureID, command, selected, kind)
+	if cached, found, _ := engine.store.LoadExperimentCache(cacheKey); found {
+		cached.ID = id.New("exp")
+		cached.StartedAt = time.Now().UTC()
+		cached.FinishedAt = cached.StartedAt
+		cached.BaseCaptureID = base.ID
+		cached.SourceCaptureID = source.ID
+		cached.FactorIDs = append([]string(nil), factorIDs...)
+		cached.CacheHit = true
+		return cached, cached.OracleResult.Passed, nil
+	}
 	root, err := os.MkdirTemp("", "worldbisect-experiment-")
 	if err != nil {
 		return model.Experiment{}, false, err
@@ -251,6 +262,11 @@ func (engine *Engine) runWorld(ctx context.Context, base, source *model.Capture,
 		if result == nil {
 			return record, false, runErr
 		}
+	}
+	if result != nil && !result.TimedOut {
+		// A cache write is an optimization only. A full experiment result is
+		// still returned if the disposable cache is unavailable or full.
+		_ = engine.store.SaveExperimentCache(cacheKey, record)
 	}
 	return record, record.OracleResult.Passed, nil
 }

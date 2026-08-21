@@ -146,6 +146,7 @@ type Factor struct {
 type Experiment struct {
 	ID              string        `json:"id"`
 	Kind            string        `json:"kind"`
+	CacheHit        bool          `json:"cache_hit,omitempty"`
 	StartedAt       time.Time     `json:"started_at"`
 	FinishedAt      time.Time     `json:"finished_at"`
 	BaseCaptureID   string        `json:"base_capture_id"`

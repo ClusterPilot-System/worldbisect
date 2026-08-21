@@ -53,6 +53,22 @@ func TestEngineProvesFileCause(t *testing.T) {
 	if len(analysis.CausalFactors) != 1 {
 		t.Fatalf("causal factors = %v", analysis.CausalFactors)
 	}
+	cachedAnalysis, err := New(dataStore, runner.New()).Analyze(context.Background(), Request{Good: good, Bad: bad, Command: []string{"./check.sh"}, Repetitions: 2, MaxExperiments: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cacheHits := 0
+	for _, experiment := range cachedAnalysis.Experiments {
+		if experiment.CacheHit {
+			cacheHits++
+		}
+	}
+	if cacheHits == 0 {
+		t.Fatalf("second equivalent analysis did not reuse experiments: %+v", cachedAnalysis.Experiments)
+	}
+	if cachedAnalysis.Status != model.StatusProven {
+		t.Fatalf("cached status = %s limitations=%v", cachedAnalysis.Status, cachedAnalysis.Limitations)
+	}
 }
 
 func intPointer(value int) *int { return &value }

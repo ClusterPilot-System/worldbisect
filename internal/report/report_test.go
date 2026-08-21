@@ -15,7 +15,7 @@ func provenAnalysis() *model.Analysis {
 	return &model.Analysis{
 		ID: "ana_test", GoodCaptureID: "cap_good", BadCaptureID: "cap_bad",
 		Status: model.StatusProven, ForwardVerified: true, ReverseVerified: true, MinimalInModel: true,
-		CausalFactors: []string{"workspace:config.txt"}, Experiments: make([]model.Experiment, 9),
+		CausalFactors: []string{"workspace:config.txt"}, Experiments: []model.Experiment{{CacheHit: true}, {}, {}},
 		Factors:            []model.Factor{{ID: "workspace:config.txt", Type: model.FactorWorkspace, Key: "config.txt", GoodEntry: model.WorkspaceEntry{Type: "file"}}},
 		EvidenceBoundaries: []string{"host scheduling was not controlled"},
 		Limitations:        []string{"proof applies only to the supported intervention model"},
@@ -42,6 +42,10 @@ func TestAnalysisReportJSONHasStableContract(t *testing.T) {
 	if strings.Contains(string(encoded), "good_value") || strings.Contains(string(encoded), "bad_value") {
 		t.Fatalf("report exposed internal factor values: %s", encoded)
 	}
+	evidence, ok := value["evidence"].(map[string]any)
+	if !ok || evidence["cache_hits"] != float64(1) || evidence["cache_misses"] != float64(2) {
+		t.Fatalf("cache evidence = %+v", value["evidence"])
+	}
 }
 
 func TestAnalysisReportMarkdownIsGitHubReady(t *testing.T) {
@@ -49,7 +53,7 @@ func TestAnalysisReportMarkdownIsGitHubReady(t *testing.T) {
 	for _, expected := range []string{
 		"# WorldBisect diagnosis", "**Status:** `PROVEN`", "## Proof",
 		"## Confirmed or suspected cause", "workspace file \"config.txt\"",
-		"## Next steps", "## Evidence boundaries", "Analysis `ana_test`",
+		"## Next steps", "## Evidence boundaries", "cache hits: 1; cache misses: 2", "Analysis `ana_test`",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("markdown does not contain %q:\n%s", expected, output)
