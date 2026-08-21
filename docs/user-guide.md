@@ -128,19 +128,30 @@ Bundles are deterministic and validated on import. Treat them as sensitive until
 For an engineer-to-engineer or support handoff, export an analysis bundle:
 
 ```bash
-worldbisect export --store /tmp/wb-store \
-  --analysis <analysis-id> --output diagnosis.wdiag
+worldbisect handoff --store /tmp/wb-store \
+  --analysis <analysis-id> --preview
+worldbisect handoff --store /tmp/wb-store \
+  --analysis <analysis-id> --output diagnosis.wdiag --confirm
 worldbisect import --store /tmp/receiving-store \
   --certificate-output imported.wbc diagnosis.wdiag
 worldbisect explain --store /tmp/receiving-store <analysis-id>
 worldbisect verify imported.wbc
 ```
 
-The diagnostic bundle contains the analysis, good and bad capture metadata,
-the signed certificate, and both stable report formats. Export redacts command
-output, workspace content blobs, command arguments, sensitive paths, and
-secret-looking environment values. Its manifest checks every entry and import
-validates the certificate and report before persistence.
+The preview is read-only. It shows the deterministic incident ID, files that
+will be created, fields that will be redacted, and retention guidance. No
+diagnostic bundle is written until the operator reviews the preview and repeats
+the command with `--confirm`. The handoff contains the analysis, good and bad
+capture metadata, signed certificate, stable reports, and a checksummed
+manifest. Export redacts command output, workspace content blobs, command
+arguments, sensitive paths, and secret-looking environment values. Import
+validates every entry, the incident manifest, certificate, and report before
+persistence.
+
+Treat a handoff as sensitive operational evidence. Share it only through the
+approved support channel, retain it for the support period, and delete the
+bundle and any separately exported certificate when the case is closed. Keep
+the local signing key in the store backup; do not send it with the handoff.
 
 ## CI output and exit codes
 

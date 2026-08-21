@@ -56,7 +56,16 @@ print(json.load(open(sys.argv[1]))["analysis_id"])
 PY
 )
 diagnostic_store="$work/diagnostic-store"
-"$work/bin/worldbisect" export --store "$store" --analysis "$analysis_id" --output "$work/diagnosis.wdiag" >/dev/null
+handoff_preview=$("$work/bin/worldbisect" handoff --store "$store" --analysis "$analysis_id" --preview)
+printf '%s\n' "$handoff_preview" > "$work/handoff-preview.json"
+python3 - "$work/handoff-preview.json" <<'PY'
+import json, sys
+value=json.load(open(sys.argv[1]))
+assert value["incident_id"].startswith("inc-")
+assert value["confirmation_required"] is True
+assert value["redacted_fields"]
+PY
+"$work/bin/worldbisect" handoff --store "$store" --analysis "$analysis_id" --output "$work/diagnosis.wdiag" --confirm >/dev/null
 "$work/bin/worldbisect" import --store "$diagnostic_store" --certificate-output "$work/imported.wbc" "$work/diagnosis.wdiag" >/dev/null
 "$work/bin/worldbisect" explain --store "$diagnostic_store" "$analysis_id" >/dev/null
 "$work/bin/worldbisect" verify "$work/imported.wbc" > "$work/imported-verify.json"
