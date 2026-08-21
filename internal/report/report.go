@@ -84,10 +84,28 @@ type sarifRule struct {
 }
 
 type sarifResult struct {
-	RuleID     string         `json:"ruleId"`
-	Level      string         `json:"level"`
-	Message    sarifText      `json:"message"`
-	Properties map[string]any `json:"properties"`
+	RuleID     string          `json:"ruleId"`
+	Level      string          `json:"level"`
+	Message    sarifText       `json:"message"`
+	Locations  []sarifLocation `json:"locations"`
+	Properties map[string]any  `json:"properties"`
+}
+
+type sarifLocation struct {
+	PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"`
+}
+
+type sarifPhysicalLocation struct {
+	ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
+	Region           sarifRegion           `json:"region"`
+}
+
+type sarifArtifactLocation struct {
+	URI string `json:"uri"`
+}
+
+type sarifRegion struct {
+	StartLine int `json:"startLine"`
 }
 
 type sarifText struct {
@@ -268,7 +286,14 @@ func SARIF(value *model.Analysis, links OutputLinks) ([]byte, error) {
 	if links.ReportURL != "" {
 		properties["report_url"] = links.ReportURL
 	}
-	result := sarifResult{RuleID: ruleID, Level: sarifLevel(value.Status), Message: sarifText{Text: report.Explanation}, Properties: properties}
+	result := sarifResult{
+		RuleID: ruleID, Level: sarifLevel(value.Status), Message: sarifText{Text: report.Explanation},
+		Locations: []sarifLocation{{PhysicalLocation: sarifPhysicalLocation{
+			ArtifactLocation: sarifArtifactLocation{URI: "worldbisect://analysis/" + report.AnalysisID},
+			Region:           sarifRegion{StartLine: 1},
+		}}},
+		Properties: properties,
+	}
 	document := sarifDocument{
 		Version: "2.1.0",
 		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
