@@ -1,11 +1,152 @@
 package report
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/ClusterPilot-System/worldbisect/internal/model"
 )
+
+const AnalysisReportSchemaVersion = 1
+
+// AnalysisReport is the stable, secret-safe public representation of an analysis.
+// Keep this separate from model.Analysis so persisted internals can evolve without
+// changing the automation and support contract emitted by the CLI.
+type AnalysisReport struct {
+	SchemaVersion int            `json:"schema_version"`
+	Format        string         `json:"format"`
+	AnalysisID    string         `json:"analysis_id"`
+	Status        string         `json:"status"`
+	Explanation   string         `json:"explanation"`
+	Proof         ReportProof    `json:"proof"`
+	Cause         []ReportFactor `json:"cause"`
+	Boundaries    []string       `json:"boundaries"`
+	Limitations   []string       `json:"limitations"`
+	NextSteps     []string       `json:"next_steps"`
+	Evidence      ReportEvidence `json:"evidence"`
+	Summary       string         `json:"summary,omitempty"`
+}
+
+type ReportProof struct {
+	ForwardVerified bool `json:"forward_verified"`
+	ReverseVerified bool `json:"reverse_verified"`
+	MinimalInModel  bool `json:"minimal_in_model"`
+}
+
+type ReportFactor struct {
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	Key         string `json:"key"`
+	Description string `json:"description"`
+}
+
+type ReportEvidence struct {
+	GoodCaptureID   string `json:"good_capture_id"`
+	BadCaptureID    string `json:"bad_capture_id"`
+	FactorCount     int    `json:"factor_count"`
+	ExperimentCount int    `json:"experiment_count"`
+}
+
+// Build derives every supported output format from one deterministic report value.
+func Build(value *model.Analysis) AnalysisReport {
+	byID := make(map[string]model.Factor, len(value.Factors))
+	for _, factor := range value.Factors {
+		byID[factor.ID] = factor
+	}
+
+	identifiers := append([]string(nil), value.CausalFactors...)
+	sort.Strings(identifiers)
+	cause := make([]ReportFactor, 0, len(identifiers))
+	for _, identifier := range identifiers {
+		factor, found := byID[identifier]
+		if !found {
+			cause = append(cause, ReportFactor{ID: identifier, Description: "factor metadata was not available in this analysis"})
+			continue
+		}
+		cause = append(cause, ReportFactor{
+			ID: identifier, Type: string(factor.Type), Key: factor.Key,
+			Description: humanFactor(factor),
+		})
+	}
+
+	boundaries := append(make([]string, 0, len(value.EvidenceBoundaries)), value.EvidenceBoundaries...)
+	limitations := append(make([]string, 0, len(value.Limitations)), value.Limitations...)
+	sort.Strings(boundaries)
+	sort.Strings(limitations)
+	return AnalysisReport{
+		SchemaVersion: AnalysisReportSchemaVersion,
+		Format:        "worldbisect.analysis-report.v1",
+		AnalysisID:    value.ID,
+		Status:        string(value.Status),
+		Explanation:   humanExplanation(value.Status),
+		Proof: ReportProof{
+			ForwardVerified: value.ForwardVerified,
+			ReverseVerified: value.ReverseVerified,
+			MinimalInModel:  value.MinimalInModel,
+		},
+		Cause:       cause,
+		Boundaries:  boundaries,
+		Limitations: limitations,
+		NextSteps:   nextSteps(value),
+		Evidence: ReportEvidence{
+			GoodCaptureID:   value.GoodCaptureID,
+			BadCaptureID:    value.BadCaptureID,
+			FactorCount:     len(value.Factors),
+			ExperimentCount: len(value.Experiments),
+		},
+		Summary: value.Summary,
+	}
+}
+
+// JSON returns the versioned machine-readable report contract.
+func JSON(value *model.Analysis) ([]byte, error) {
+	encoded, err := json.MarshalIndent(Build(value), "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(encoded, '\n'), nil
+}
+
+// Markdown returns a stable report suitable for GitHub comments and support tickets.
+func Markdown(value *model.Analysis) string {
+	report := Build(value)
+	var builder strings.Builder
+	fmt.Fprintln(&builder, "# WorldBisect diagnosis")
+	fmt.Fprintf(&builder, "\n**Status:** `%s`\n\n%s\n", report.Status, report.Explanation)
+	fmt.Fprintln(&builder, "## Proof")
+	fmt.Fprintf(&builder, "\n- Forward intervention verified: `%t`\n- Reverse intervention verified: `%t`\n- Minimal within tested model: `%t`\n", report.Proof.ForwardVerified, report.Proof.ReverseVerified, report.Proof.MinimalInModel)
+	fmt.Fprintln(&builder, "\n## Confirmed or suspected cause")
+	if len(report.Cause) == 0 {
+		fmt.Fprintln(&builder, "\nNo cause was confirmed within the supported test model.")
+	} else {
+		for _, factor := range report.Cause {
+			fmt.Fprintf(&builder, "\n- `%s` — %s", factor.ID, factor.Description)
+		}
+		fmt.Fprintln(&builder)
+	}
+	fmt.Fprintln(&builder, "\n## Next steps")
+	for index, step := range report.NextSteps {
+		fmt.Fprintf(&builder, "%d. %s\n", index+1, step)
+	}
+	if len(report.Boundaries) > 0 {
+		fmt.Fprintln(&builder, "\n## Evidence boundaries")
+		for _, boundary := range report.Boundaries {
+			fmt.Fprintf(&builder, "\n- %s", boundary)
+		}
+		fmt.Fprintln(&builder)
+	}
+	if len(report.Limitations) > 0 {
+		fmt.Fprintln(&builder, "\n## Limitations")
+		for _, limitation := range report.Limitations {
+			fmt.Fprintf(&builder, "\n- %s", limitation)
+		}
+		fmt.Fprintln(&builder)
+	}
+	fmt.Fprintf(&builder, "\n<sub>Analysis `%s`; experiments: %d; factors: %d.</sub>\n", report.AnalysisID, report.Evidence.ExperimentCount, report.Evidence.FactorCount)
+	return builder.String()
+}
 
 func Capture(value *model.Capture) string {
 	var builder strings.Builder
@@ -23,77 +164,7 @@ func Capture(value *model.Capture) string {
 }
 
 func Analysis(value *model.Analysis) string {
-	var builder strings.Builder
-	fmt.Fprintln(&builder, "WorldBisect diagnosis")
-	fmt.Fprintln(&builder, "=====================")
-	fmt.Fprintf(&builder, "result: %s\n\n", humanStatus(value.Status))
-
-	fmt.Fprintln(&builder, "What this means:")
-	fmt.Fprintln(&builder, humanExplanation(value.Status))
-	fmt.Fprintln(&builder)
-
-	fmt.Fprintln(&builder, "Detected cause:")
-	if len(value.CausalFactors) > 0 {
-		byID := make(map[string]model.Factor)
-		for _, factor := range value.Factors {
-			byID[factor.ID] = factor
-		}
-		for _, identifier := range value.CausalFactors {
-			factor := byID[identifier]
-			fmt.Fprintf(&builder, "- %s\n", humanFactor(factor))
-		}
-	} else {
-		fmt.Fprintln(&builder, "- No cause was confirmed within the supported test model.")
-	}
-	fmt.Fprintln(&builder)
-
-	fmt.Fprintln(&builder, "Why this conclusion is trusted:")
-	for _, reason := range proofReasons(value) {
-		fmt.Fprintf(&builder, "- %s\n", reason)
-	}
-
-	fmt.Fprintln(&builder)
-	fmt.Fprintln(&builder, "Next steps:")
-	for index, step := range nextSteps(value) {
-		fmt.Fprintf(&builder, "%d. %s\n", index+1, step)
-	}
-
-	if value.Summary != "" && value.Status != model.StatusProven {
-		fmt.Fprintf(&builder, "\nTechnical conclusion: %s\n", value.Summary)
-	}
-	if len(value.Limitations) > 0 {
-		fmt.Fprintln(&builder, "\nLimitations:")
-		for _, item := range value.Limitations {
-			fmt.Fprintln(&builder, "-", item)
-		}
-	}
-	if len(value.EvidenceBoundaries) > 0 {
-		fmt.Fprintln(&builder, "\nEvidence boundaries:")
-		for _, item := range value.EvidenceBoundaries {
-			fmt.Fprintln(&builder, "-", item)
-		}
-	}
-
-	fmt.Fprintln(&builder, "\nTechnical details (for support):")
-	fmt.Fprintf(&builder, "analysis id: %s\n", value.ID)
-	fmt.Fprintf(&builder, "captures: good=%s bad=%s\n", value.GoodCaptureID, value.BadCaptureID)
-	fmt.Fprintf(&builder, "validated factors: %d; experiments: %d\n", len(value.Factors), len(value.Experiments))
-	return builder.String()
-}
-
-func humanStatus(status model.ProofStatus) string {
-	switch status {
-	case model.StatusProven:
-		return "PROVEN — cause confirmed"
-	case model.StatusSupported:
-		return "SUPPORTED — evidence supports this cause, but proof is incomplete"
-	case model.StatusCorrelated:
-		return "CORRELATED — this difference tracks the failure, but could not be controlled"
-	case model.StatusUnproven:
-		return "UNPROVEN — no reliable cause was confirmed"
-	default:
-		return string(status)
-	}
+	return Markdown(value)
 }
 
 func humanExplanation(status model.ProofStatus) string {
@@ -132,21 +203,6 @@ func workspaceKind(factor model.Factor) string {
 		return "symbolic link"
 	default:
 		return "file"
-	}
-}
-
-func proofReasons(value *model.Analysis) []string {
-	if value.Status != model.StatusProven {
-		return []string{
-			fmt.Sprintf("WorldBisect ran %d controlled experiment(s).", len(value.Experiments)),
-			"The result is limited to the supported factors and evidence boundaries listed below.",
-		}
-	}
-	return []string{
-		"The bad run was repaired when the detected factor was changed to the good value.",
-		"The failure returned when the same factor was changed back in the opposite direction.",
-		"The factor set was minimal within the tested model.",
-		fmt.Sprintf("The conclusion was checked with %d controlled experiment(s).", len(value.Experiments)),
 	}
 }
 

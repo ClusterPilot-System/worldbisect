@@ -43,9 +43,12 @@ python3 - "$work/analysis.json" <<'PY'
 import json, sys
 value=json.load(open(sys.argv[1]))
 assert value["status"] == "PROVEN", value
-assert len(value["causal_factors"]) == 1, value
-factors={item["id"]: item for item in value["factors"]}
-assert factors[value["causal_factors"][0]]["key"] == "config.txt", value
+assert value["schema_version"] == 1, value
+assert value["format"] == "worldbisect.analysis-report.v1", value
+assert value["proof"] == {"forward_verified": True, "reverse_verified": True, "minimal_in_model": True}, value
+assert len(value["cause"]) == 1, value
+assert value["cause"][0]["key"] == "config.txt", value
+assert "boundaries" in value and "limitations" in value, value
 PY
 "$work/bin/worldbisect" verify "$work/result.wbc" > "$work/verify.json"
 python3 - "$work/verify.json" <<'PY'
