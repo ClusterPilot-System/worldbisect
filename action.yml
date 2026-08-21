@@ -1,0 +1,106 @@
+name: WorldBisect
+description: Capture two explicitly selected workspaces and publish a deterministic diagnosis
+author: ClusterPilot System
+branding:
+  color: blue
+  icon: search
+
+inputs:
+  command:
+    description: Explicit executable and whitespace-separated arguments used in both workspaces
+    required: true
+  good-workspace:
+    description: Workspace path relative to GITHUB_WORKSPACE representing the known-good world
+    required: true
+  bad-workspace:
+    description: Workspace path relative to GITHUB_WORKSPACE representing the known-bad world
+    required: true
+  version:
+    description: WorldBisect release version without the leading v
+    required: false
+    default: '1.0.0'
+  sha256:
+    description: SHA-256 of the selected immutable Linux release archive
+    required: true
+  repository:
+    description: Release repository containing the verified WorldBisect archive
+    required: false
+    default: ClusterPilot-System/worldbisect
+  oracle:
+    description: Failure oracle passed to WorldBisect capture
+    required: false
+    default: exit=0
+  repetitions:
+    description: Number of repeated experiments per factor
+    required: false
+    default: '3'
+  max-experiments:
+    description: Maximum number of experiments allowed during analysis
+    required: false
+    default: '128'
+  fail-on:
+    description: Policy that makes the action fail after artifacts are uploaded
+    required: false
+    default: never
+  report-url:
+    description: Optional stable report URL embedded in JUnit and SARIF metadata
+    required: false
+    default: ''
+  bundle-url:
+    description: Optional stable diagnostic-bundle URL embedded in JUnit and SARIF metadata
+    required: false
+    default: ''
+  artifact-name:
+    description: GitHub Actions artifact name for the report and evidence files
+    required: false
+    default: worldbisect-diagnostic
+
+outputs:
+  status:
+    description: Deterministic WorldBisect analysis status
+    value: ${{ steps.run.outputs.status }}
+  analysis-id:
+    description: Stable WorldBisect analysis identifier
+    value: ${{ steps.run.outputs.analysis-id }}
+  report-path:
+    description: Markdown report path in the uploaded artifact
+    value: ${{ steps.run.outputs.report-path }}
+  bundle-path:
+    description: Redacted diagnostic bundle path in the uploaded artifact
+    value: ${{ steps.run.outputs.bundle-path }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      name: Run WorldBisect
+      shell: bash
+      env:
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_GOOD_WORKSPACE: ${{ inputs.good-workspace }}
+        INPUT_BAD_WORKSPACE: ${{ inputs.bad-workspace }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_SHA256: ${{ inputs.sha256 }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_ORACLE: ${{ inputs.oracle }}
+        INPUT_REPETITIONS: ${{ inputs.repetitions }}
+        INPUT_MAX_EXPERIMENTS: ${{ inputs.max-experiments }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_REPORT_URL: ${{ inputs.report-url }}
+        INPUT_BUNDLE_URL: ${{ inputs.bundle-url }}
+        WORLD_BISECT_OUTPUT_DIR: ${{ runner.temp }}/worldbisect-action
+      run: ${{ github.action_path }}/scripts/github-action.sh
+
+    - name: Upload WorldBisect evidence
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ runner.temp }}/worldbisect-action/artifacts
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Apply WorldBisect failure policy
+      if: always()
+      shell: bash
+      run: exit "$(cat '${{ runner.temp }}/worldbisect-action/exit-code')"

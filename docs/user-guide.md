@@ -153,6 +153,34 @@ job must exit `1` for that status threshold. Operational errors always exit
 `1`. `--report-url` and `--bundle-url` add stable links to JUnit properties and
 SARIF result properties without embedding sensitive data.
 
+## GitHub Action
+
+The repository exposes a composite action for Linux GitHub runners. It downloads
+the selected WorldBisect release only after verifying the caller-provided
+SHA-256, captures only the two explicitly selected workspace paths, and uploads
+the Markdown/JSON/JUnit/SARIF reports, certificate, and redacted diagnostic
+bundle as one artifact. It never collects kubeconfigs, credentials, or other
+files outside those workspaces automatically.
+
+```yaml
+- name: Diagnose workspace difference
+  uses: ClusterPilot-System/worldbisect@<commit-sha>
+  with:
+    command: ./ci/check.sh
+    good-workspace: fixtures/good
+    bad-workspace: fixtures/bad
+    version: 1.0.0
+    sha256: 17d7be9fa12de3c3bff2897e22e9af2da7d724e7b36d13b05946cd4255afaaac
+    fail-on: proven
+```
+
+Pin the action reference to a reviewed commit and copy the SHA-256 matching the
+Linux runner architecture from the signed release `SHA256SUMS`. On pull
+requests from forks, the action has no automatic access to repository secrets;
+the command and workspace inputs must still be safe for untrusted source code.
+The `fail-on` policy is applied only after evidence upload, so a proven result
+fails the check without hiding the report.
+
 ## Verify certificate
 
 ```bash
