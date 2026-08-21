@@ -38,7 +38,16 @@ jobs:
       - name: End-to-end
         env:
           WORLDBISECT_E2E_RACE: "1"
+          WORLDBISECT_E2E_ARTIFACT_DIR: build/diagnostics
         run: timeout --foreground 120s ./scripts/e2e.sh
+      - name: Upload diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: worldbisect-diagnostic-reports
+          path: build/diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Release gate
         run: make check
       - name: Upload test artifacts
@@ -51,6 +60,24 @@ jobs:
             coverage.out
           if-no-files-found: ignore
           retention-days: 7
+
+  upload-diagnostic-sarif:
+    if: github.event_name != 'pull_request' && needs.validate.result == 'success'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      security-events: write
+    steps:
+      - name: Download diagnostic reports
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: worldbisect-diagnostic-reports
+          path: build/diagnostics
+      - name: Upload SARIF findings
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          sarif_file: build/diagnostics/analysis.sarif
 
   arm64-runtime:
     runs-on: ubuntu-22.04-arm

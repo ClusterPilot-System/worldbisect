@@ -2,6 +2,7 @@ package report
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,6 +11,88 @@ import (
 )
 
 const AnalysisReportSchemaVersion = 1
+
+type OutputLinks struct {
+	ReportURL string
+	BundleURL string
+}
+
+type junitTestSuites struct {
+	XMLName  xml.Name         `xml:"testsuites"`
+	Name     string           `xml:"name,attr"`
+	Tests    int              `xml:"tests,attr"`
+	Failures int              `xml:"failures,attr"`
+	Skipped  int              `xml:"skipped,attr"`
+	Suites   []junitTestSuite `xml:"testsuite"`
+}
+
+type junitTestSuite struct {
+	Name       string          `xml:"name,attr"`
+	Tests      int             `xml:"tests,attr"`
+	Failures   int             `xml:"failures,attr"`
+	Skipped    int             `xml:"skipped,attr"`
+	Properties []junitProperty `xml:"properties>property"`
+	Cases      []junitTestCase `xml:"testcase"`
+}
+
+type junitProperty struct {
+	Name  string `xml:"name,attr"`
+	Value string `xml:"value,attr"`
+}
+
+type junitTestCase struct {
+	Classname string        `xml:"classname,attr"`
+	Name      string        `xml:"name,attr"`
+	Failure   *junitFailure `xml:"failure,omitempty"`
+	Skipped   *junitSkipped `xml:"skipped,omitempty"`
+}
+
+type junitFailure struct {
+	Message string `xml:"message,attr"`
+	Text    string `xml:",chardata"`
+}
+
+type junitSkipped struct {
+	Message string `xml:"message,attr"`
+}
+
+type sarifDocument struct {
+	Version string     `json:"version"`
+	Schema  string     `json:"$schema"`
+	Runs    []sarifRun `json:"runs"`
+}
+
+type sarifRun struct {
+	Tool    sarifTool     `json:"tool"`
+	Results []sarifResult `json:"results"`
+}
+
+type sarifTool struct {
+	Driver sarifDriver `json:"driver"`
+}
+
+type sarifDriver struct {
+	Name  string      `json:"name"`
+	Rules []sarifRule `json:"rules"`
+}
+
+type sarifRule struct {
+	ID               string    `json:"id"`
+	Name             string    `json:"name"`
+	ShortDescription sarifText `json:"shortDescription"`
+	HelpURI          string    `json:"helpUri,omitempty"`
+}
+
+type sarifResult struct {
+	RuleID     string         `json:"ruleId"`
+	Level      string         `json:"level"`
+	Message    sarifText      `json:"message"`
+	Properties map[string]any `json:"properties"`
+}
+
+type sarifText struct {
+	Text string `json:"text"`
+}
 
 // AnalysisReport is the stable, secret-safe public representation of an analysis.
 // Keep this separate from model.Analysis so persisted internals can evolve without
@@ -107,6 +190,114 @@ func JSON(value *model.Analysis) ([]byte, error) {
 		return nil, err
 	}
 	return append(encoded, '\n'), nil
+}
+
+// JUnit returns a deterministic test result for CI systems that consume XML.
+// PROVEN and SUPPORTED are findings; CORRELATED and UNPROVEN are explicit skips.
+func JUnit(value *model.Analysis, links OutputLinks) ([]byte, error) {
+	report := Build(value)
+	caseValue := junitTestCase{Classname: "worldbisect.analysis", Name: report.AnalysisID}
+	properties := []junitProperty{
+		{Name: "analysis_id", Value: report.AnalysisID},
+		{Name: "status", Value: report.Status},
+		{Name: "schema_version", Value: fmt.Sprint(report.SchemaVersion)},
+	}
+	if links.ReportURL != "" {
+		properties = append(properties, junitProperty{Name: "report_url", Value: links.ReportURL})
+	}
+	if links.BundleURL != "" {
+		properties = append(properties, junitProperty{Name: "bundle_url", Value: links.BundleURL})
+	}
+	failures := 0
+	skipped := 0
+	if findingStatus(value.Status) {
+		failures = 1
+		caseValue.Failure = &junitFailure{Message: report.Status, Text: report.Explanation}
+	} else {
+		skipped = 1
+		caseValue.Skipped = &junitSkipped{Message: report.Status}
+	}
+	document := junitTestSuites{
+		Name: "WorldBisect", Tests: 1, Failures: failures, Skipped: skipped,
+		Suites: []junitTestSuite{{
+			Name: "worldbisect.analysis", Tests: 1, Failures: failures, Skipped: skipped,
+			Properties: properties, Cases: []junitTestCase{caseValue},
+		}},
+	}
+	encoded, err := xml.MarshalIndent(document, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"), append(encoded, '\n')...), nil
+}
+
+// SARIF returns a SARIF 2.1.0 finding suitable for GitHub code scanning upload.
+func SARIF(value *model.Analysis, links OutputLinks) ([]byte, error) {
+	report := Build(value)
+	ruleID := "worldbisect/" + report.Status
+	rule := sarifRule{
+		ID: ruleID, Name: "WorldBisect " + report.Status,
+		ShortDescription: sarifText{Text: report.Explanation},
+		HelpURI:          links.ReportURL,
+	}
+	properties := map[string]any{
+		"analysis_id":      report.AnalysisID,
+		"status":           report.Status,
+		"schema_version":   report.SchemaVersion,
+		"forward_verified": report.Proof.ForwardVerified,
+		"reverse_verified": report.Proof.ReverseVerified,
+		"minimal_in_model": report.Proof.MinimalInModel,
+	}
+	if links.BundleURL != "" {
+		properties["bundle_url"] = links.BundleURL
+	}
+	if links.ReportURL != "" {
+		properties["report_url"] = links.ReportURL
+	}
+	result := sarifResult{RuleID: ruleID, Level: sarifLevel(value.Status), Message: sarifText{Text: report.Explanation}, Properties: properties}
+	document := sarifDocument{
+		Version: "2.1.0",
+		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
+		Runs:    []sarifRun{{Tool: sarifTool{Driver: sarifDriver{Name: "WorldBisect", Rules: []sarifRule{rule}}}, Results: []sarifResult{result}}},
+	}
+	encoded, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(encoded, '\n'), nil
+}
+
+// ShouldFail applies the documented CI policy without changing the report payload.
+func ShouldFail(status model.ProofStatus, policy string) (bool, error) {
+	switch policy {
+	case "never", "":
+		return false, nil
+	case "proven":
+		return status == model.StatusProven, nil
+	case "supported":
+		return status == model.StatusProven || status == model.StatusSupported, nil
+	case "correlated":
+		return status != model.StatusUnproven, nil
+	case "any":
+		return true, nil
+	default:
+		return false, fmt.Errorf("unsupported --fail-on value %q (use never, proven, supported, correlated, or any)", policy)
+	}
+}
+
+func findingStatus(status model.ProofStatus) bool {
+	return status == model.StatusProven || status == model.StatusSupported
+}
+
+func sarifLevel(status model.ProofStatus) string {
+	switch status {
+	case model.StatusProven:
+		return "error"
+	case model.StatusSupported, model.StatusCorrelated:
+		return "warning"
+	default:
+		return "note"
+	}
 }
 
 // Markdown returns a stable report suitable for GitHub comments and support tickets.

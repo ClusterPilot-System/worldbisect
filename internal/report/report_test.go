@@ -2,6 +2,7 @@ package report
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,5 +104,82 @@ func TestAnalysisReportIsDeterministic(t *testing.T) {
 	}
 	if string(firstOutput) != string(secondOutput) {
 		t.Fatalf("report changed for equivalent inputs:\n%s\n%s", firstOutput, secondOutput)
+	}
+}
+
+func TestJUnitAndSARIFContractsCoverStatuses(t *testing.T) {
+	for _, status := range []model.ProofStatus{model.StatusProven, model.StatusSupported, model.StatusCorrelated, model.StatusUnproven} {
+		t.Run(string(status), func(t *testing.T) {
+			value := &model.Analysis{ID: "ana_" + strings.ToLower(string(status)), Status: status, Summary: "do not expose supersecret"}
+			junit, err := JUnit(value, OutputLinks{ReportURL: "https://ci.example/report", BundleURL: "https://ci.example/bundle"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var suites struct {
+				Failures int `xml:"failures,attr"`
+				Skipped  int `xml:"skipped,attr"`
+			}
+			if err := xml.Unmarshal(junit, &suites); err != nil {
+				t.Fatalf("invalid JUnit: %v\n%s", err, junit)
+			}
+			if findingStatus(status) && suites.Failures != 1 {
+				t.Fatalf("JUnit failures = %d for %s", suites.Failures, status)
+			}
+			if !findingStatus(status) && suites.Skipped != 1 {
+				t.Fatalf("JUnit skipped = %d for %s", suites.Skipped, status)
+			}
+			sarif, err := SARIF(value, OutputLinks{ReportURL: "https://ci.example/report", BundleURL: "https://ci.example/bundle"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var document struct {
+				Version string `json:"version"`
+				Runs    []struct {
+					Results []struct {
+						RuleID     string         `json:"ruleId"`
+						Level      string         `json:"level"`
+						Properties map[string]any `json:"properties"`
+					} `json:"results"`
+				} `json:"runs"`
+			}
+			if err := json.Unmarshal(sarif, &document); err != nil {
+				t.Fatalf("invalid SARIF: %v\n%s", err, sarif)
+			}
+			if document.Version != "2.1.0" || len(document.Runs) != 1 || len(document.Runs[0].Results) != 1 {
+				t.Fatalf("invalid SARIF shape: %s", sarif)
+			}
+			result := document.Runs[0].Results[0]
+			if result.RuleID != "worldbisect/"+string(status) || result.Properties["status"] != string(status) {
+				t.Fatalf("invalid SARIF result: %s", sarif)
+			}
+			if strings.Contains(string(junit), "supersecret") || strings.Contains(string(sarif), "supersecret") {
+				t.Fatal("diagnostic formats exposed secret text")
+			}
+		})
+	}
+}
+
+func TestShouldFailIsDeterministic(t *testing.T) {
+	cases := []struct {
+		status model.ProofStatus
+		policy string
+		want   bool
+	}{
+		{model.StatusProven, "never", false},
+		{model.StatusProven, "proven", true},
+		{model.StatusSupported, "proven", false},
+		{model.StatusSupported, "supported", true},
+		{model.StatusCorrelated, "correlated", true},
+		{model.StatusUnproven, "correlated", false},
+		{model.StatusUnproven, "any", true},
+	}
+	for _, test := range cases {
+		got, err := ShouldFail(test.status, test.policy)
+		if err != nil || got != test.want {
+			t.Errorf("ShouldFail(%s, %s) = %t, %v; want %t", test.status, test.policy, got, err, test.want)
+		}
+	}
+	if _, err := ShouldFail(model.StatusProven, "invalid"); err == nil {
+		t.Fatal("invalid fail policy was accepted")
 	}
 }
