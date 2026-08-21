@@ -20,8 +20,9 @@ inputs:
     required: false
     default: '1.1.0'
   sha256:
-    description: SHA-256 of the selected immutable Linux release archive
-    required: true
+    description: Optional SHA-256 of the selected archive. Defaults to the verified official v1.1.0 digest for the runner architecture.
+    required: false
+    default: ''
   repository:
     description: Release repository containing the verified WorldBisect archive
     required: false
@@ -68,6 +69,18 @@ outputs:
   bundle-path:
     description: Redacted diagnostic bundle path in the uploaded artifact
     value: ${{ steps.run.outputs.bundle-path }}
+  report-artifact-url:
+    description: Direct URL to the uploaded Markdown report artifact
+    value: ${{ steps.upload-report.outputs.artifact-url }}
+  artifact-url:
+    description: Direct URL to the uploaded diagnostic evidence artifact
+    value: ${{ steps.upload-evidence.outputs.artifact-url }}
+  artifact-id:
+    description: GitHub artifact ID for the diagnostic evidence
+    value: ${{ steps.upload-evidence.outputs.artifact-id }}
+  artifact-digest:
+    description: SHA-256 digest of the uploaded diagnostic evidence artifact
+    value: ${{ steps.upload-evidence.outputs.artifact-digest }}
 
 runs:
   using: composite
@@ -91,7 +104,8 @@ runs:
         WORLD_BISECT_OUTPUT_DIR: ${{ runner.temp }}/worldbisect-action
       run: ${{ github.action_path }}/scripts/github-action.sh
 
-    - name: Upload WorldBisect evidence
+    - id: upload-evidence
+      name: Upload WorldBisect evidence
       if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
@@ -100,7 +114,62 @@ runs:
         if-no-files-found: error
         retention-days: 14
 
+    - id: upload-report
+      name: Upload WorldBisect report
+      if: always() && steps.run.outcome == 'success'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.artifact-name }}-report
+        path: ${{ runner.temp }}/worldbisect-action/artifacts/report.md
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Publish WorldBisect summary
+      if: always()
+      shell: bash
+      env:
+        STATUS: ${{ steps.run.outputs.status }}
+        ANALYSIS_ID: ${{ steps.run.outputs.analysis-id }}
+        REPORT_URL: ${{ inputs.report-url }}
+        REPORT_ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
+        EVIDENCE_ARTIFACT_URL: ${{ steps.upload-evidence.outputs.artifact-url }}
+        REPORT_PATH: ${{ steps.run.outputs.report-path }}
+      run: |
+        if [[ -z "${GITHUB_STEP_SUMMARY:-}" ]]; then
+          exit 0
+        fi
+        {
+          echo '## WorldBisect diagnosis'
+          echo
+          if [[ -n "${STATUS:-}" ]]; then
+            echo "- Status: \`$STATUS\`"
+          else
+            echo '- Status: Action did not produce a diagnosis.'
+          fi
+          if [[ -n "${ANALYSIS_ID:-}" ]]; then
+            echo "- Analysis: \`$ANALYSIS_ID\`"
+          fi
+          if [[ -n "${REPORT_URL:-}" ]]; then
+            echo "- Report: [$REPORT_URL]($REPORT_URL)"
+          elif [[ -n "${REPORT_ARTIFACT_URL:-}" ]]; then
+            echo "- Report artifact: [$REPORT_ARTIFACT_URL]($REPORT_ARTIFACT_URL)"
+          fi
+          if [[ -n "${EVIDENCE_ARTIFACT_URL:-}" ]]; then
+            echo "- Diagnostic artifact: [$EVIDENCE_ARTIFACT_URL]($EVIDENCE_ARTIFACT_URL)"
+          fi
+          echo
+          if [[ -n "${REPORT_PATH:-}" && -f "$REPORT_PATH" ]]; then
+            cat "$REPORT_PATH"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: Apply WorldBisect failure policy
       if: always()
       shell: bash
-      run: exit "$(cat '${{ runner.temp }}/worldbisect-action/exit-code')"
+      run: |
+        exit_code='${{ runner.temp }}/worldbisect-action/exit-code'
+        if [[ ! -f "$exit_code" ]]; then
+          echo 'WorldBisect did not produce a failure-policy result.' >&2
+          exit 1
+        fi
+        exit "$(cat "$exit_code")"

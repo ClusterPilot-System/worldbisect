@@ -21,7 +21,6 @@ require_input() {
 require_input INPUT_COMMAND "${INPUT_COMMAND-}"
 require_input INPUT_GOOD_WORKSPACE "${INPUT_GOOD_WORKSPACE-}"
 require_input INPUT_BAD_WORKSPACE "${INPUT_BAD_WORKSPACE-}"
-require_input INPUT_SHA256 "${INPUT_SHA256-}"
 read -r -a command_args <<< "$INPUT_COMMAND"
 (( ${#command_args[@]} > 0 )) || fail 'command must contain an executable'
 
@@ -29,7 +28,6 @@ case "${INPUT_FAIL_ON:-never}" in
   never|proven|supported|correlated|any) ;;
   *) fail "unsupported fail-on policy: ${INPUT_FAIL_ON}" ;;
 esac
-[[ "${INPUT_SHA256}" =~ ^[[:xdigit:]]{64}$ ]] || fail 'sha256 must be a 64-character hexadecimal digest'
 [[ "${INPUT_REPETITIONS:-3}" =~ ^[1-9][0-9]*$ ]] || fail 'repetitions must be a positive integer'
 [[ "${INPUT_MAX_EXPERIMENTS:-128}" =~ ^[1-9][0-9]*$ ]] || fail 'max-experiments must be a positive integer'
 
@@ -58,11 +56,23 @@ if [[ -z "$binary" ]]; then
     aarch64|arm64) arch=arm64 ;;
     *) fail "unsupported Linux architecture: $(uname -m)" ;;
   esac
+  sha256=${INPUT_SHA256:-}
+  if [[ -z "$sha256" ]]; then
+    if [[ "${INPUT_REPOSITORY:-ClusterPilot-System/worldbisect}" != "ClusterPilot-System/worldbisect" || "$version" != "1.1.0" ]]; then
+      fail 'sha256 is required for custom repositories and release versions'
+    fi
+    case "$arch" in
+      amd64) sha256=74602fb5a1894eaf63ef12178fa5d9ff53b6369a9277f17021c3733f18f7d757 ;;
+      arm64) sha256=180dbbb140fa9026ea12eb335e30d00268f1a0ca2dda4fcc0ebaeae2d8df9b79 ;;
+    esac
+    echo "worldbisect action: using built-in verified SHA-256 for v${version} Linux ${arch}" >&2
+  fi
+  [[ "$sha256" =~ ^[[:xdigit:]]{64}$ ]] || fail 'sha256 must be a 64-character hexadecimal digest'
   archive="worldbisect_${version}_linux_${arch}.tar.gz"
   archive_path="$WORK_DIR/$archive"
   url="https://github.com/${INPUT_REPOSITORY:-ClusterPilot-System/worldbisect}/releases/download/v${version}/${archive}"
   curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$url" --output "$archive_path"
-  printf '%s  %s\n' "$INPUT_SHA256" "$archive_path" | sha256sum --check --status - || fail 'release archive SHA-256 verification failed'
+  printf '%s  %s\n' "$sha256" "$archive_path" | sha256sum --check --status - || fail 'release archive SHA-256 verification failed'
   tar --extract --no-same-owner --file "$archive_path" --directory "$WORK_DIR"
   binary="$WORK_DIR/worldbisect_${version}_linux_${arch}/bin/worldbisect"
 fi
