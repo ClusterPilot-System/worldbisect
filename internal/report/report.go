@@ -402,7 +402,7 @@ func workspaceKind(factor model.Factor) string {
 		entry = factor.BadEntry
 	}
 	switch entry.Type {
-	case "directory":
+	case "dir", "directory":
 		return "directory"
 	case "symlink":
 		return "symbolic link"

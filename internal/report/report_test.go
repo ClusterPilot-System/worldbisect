@@ -93,6 +93,13 @@ func TestEveryStatusHasUnambiguousContractAndMarkdown(t *testing.T) {
 	}
 }
 
+func TestDirectoryFactorUsesPlainLanguage(t *testing.T) {
+	value := &model.Analysis{ID: "ana_directory", Status: model.StatusSupported, CausalFactors: []string{"workspace:config"}, Factors: []model.Factor{{ID: "workspace:config", Type: model.FactorWorkspace, Key: "config", GoodEntry: model.WorkspaceEntry{Type: "dir"}}}}
+	if !strings.Contains(Markdown(value), `workspace directory "config"`) {
+		t.Fatalf("directory factor was not described plainly: %s", Markdown(value))
+	}
+}
+
 func TestAnalysisReportIsDeterministic(t *testing.T) {
 	firstOutput, err := JSON(provenAnalysis())
 	if err != nil {
