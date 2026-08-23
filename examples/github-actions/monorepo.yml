@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Proof boundary: each matrix job can prove only the declared good/bad
+# workspace difference for its command. See README.md and
+# ../../docs/proof-boundary.md for the product contract.
+
 # Checks and Code Scanning are visible only when the workflow has write access.
 # Fork pull requests intentionally remain read-only; their Step Summary and
 # artifacts are still published.
