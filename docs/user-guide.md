@@ -179,11 +179,20 @@ worldbisect explain --store /tmp/wb-store --format sarif <analysis-id> > analysi
 JUnit reports `PROVEN` and `SUPPORTED` as failures; `CORRELATED` and
 `UNPROVEN` are explicit skips. SARIF reports `PROVEN` as an error,
 `SUPPORTED`/`CORRELATED` as warnings, and `UNPROVEN` as a note. Report
-formatting exits `0` regardless of proof status. Add `--fail-on proven`,
-`--fail-on supported`, `--fail-on correlated`, or `--fail-on any` when the CI
-job must exit `1` for that status threshold. Operational errors always exit
-`1`. `--report-url` and `--bundle-url` add stable links to JUnit properties and
-SARIF result properties without embedding sensitive data.
+formatting exits `0` regardless of proof status. The policy is explicit:
+
+| `--fail-on` | Exit `1` for |
+| --- | --- |
+| `never` (default) | no proof status |
+| `proven` | `PROVEN` |
+| `supported` | `PROVEN` or `SUPPORTED` |
+| `correlated` | `PROVEN`, `SUPPORTED`, or `CORRELATED` |
+| `any` | every proof status, including `UNPROVEN` |
+
+Operational errors always exit `1`. `--report-url` and `--bundle-url` add
+stable links to JUnit properties and SARIF result properties without
+embedding sensitive data. The GitHub Action uploads all evidence before it
+applies the selected policy.
 
 ## GitHub Action
 
@@ -215,6 +224,25 @@ requests from forks, the action has no automatic access to repository secrets;
 the command and workspace inputs must still be safe for untrusted source code.
 The `fail-on` policy is applied only after evidence upload, so a proven result
 fails the check without hiding the report.
+
+For team workflows, the Action can publish the JUnit report as a visible check,
+upload SARIF to Code Scanning, and update one readable pull-request comment.
+These integrations are opt-in and require `checks: write`,
+`security-events: write`, and (for the comment) `pull-requests: write`. Set
+`comment-pr: true` and pass `github-token: ${{ secrets.GITHUB_TOKEN }}` only in
+trusted same-repository pull-request workflows. Fork pull requests remain
+read-only and still receive the Step Summary and artifacts.
+
+### Monorepos and multiple workspace pairs
+
+Keep every workspace path relative to `GITHUB_WORKSPACE` and run one Action
+instance per package or service. Give each instance a unique `artifact-name`;
+the outputs and report checks then identify the package that produced them.
+The matrix example in
+[`examples/github-actions/monorepo.yml`](../examples/github-actions/monorepo.yml)
+covers API and web packages with separate good/bad fixtures. Only one trusted
+matrix entry should enable `comment-pr`, otherwise concurrent matrix jobs would
+compete to update the same summary comment.
 
 ## Verify certificate
 

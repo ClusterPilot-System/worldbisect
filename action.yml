@@ -55,6 +55,14 @@ inputs:
     description: GitHub Actions artifact name for the report and evidence files
     required: false
     default: worldbisect-diagnostic
+  comment-pr:
+    description: Update one PR comment with the redacted diagnosis summary (same-repository pull requests only)
+    required: false
+    default: 'false'
+  github-token:
+    description: Optional GitHub token for the PR comment and report checks; defaults to the workflow token
+    required: false
+    default: ''
 
 outputs:
   status:
@@ -81,6 +89,12 @@ outputs:
   artifact-digest:
     description: SHA-256 digest of the uploaded diagnostic evidence artifact
     value: ${{ steps.upload-evidence.outputs.artifact-digest }}
+  junit-path:
+    description: Local JUnit report path for a test-report check publisher
+    value: ${{ steps.run.outputs.junit-path }}
+  sarif-path:
+    description: Local SARIF report path for Code Scanning upload
+    value: ${{ steps.run.outputs.sarif-path }}
 
 runs:
   using: composite
@@ -124,6 +138,126 @@ runs:
         if-no-files-found: error
         retention-days: 14
 
+    - name: Publish JUnit test check
+      if: >-
+        always() && steps.run.outcome == 'success' &&
+        ((github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
+        github.event.pull_request.head.repo.full_name == github.repository)
+      uses: dorny/test-reporter@3eeb9fc888e82e8be2fb356bbeec2750231672bc # v1
+      with:
+        name: WorldBisect diagnosis (JUnit) / ${{ inputs.artifact-name }}
+        path: ${{ steps.run.outputs.junit-path }}
+        reporter: java-junit
+        fail-on-error: 'false'
+
+    - name: Prepare SARIF for Code Scanning
+      if: >-
+        always() && steps.run.outcome == 'success' &&
+        ((github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
+        github.event.pull_request.head.repo.full_name == github.repository)
+      shell: bash
+      env:
+        SOURCE: ${{ steps.run.outputs.sarif-path }}
+        TARGET: ${{ runner.temp }}/worldbisect-action/artifacts/github-code-scanning.sarif
+      run: |
+        python3 - "$SOURCE" "$TARGET" <<'PY'
+        import json
+        import sys
+        from pathlib import Path
+
+        source = Path(sys.argv[1])
+        target = Path(sys.argv[2])
+        document = json.loads(source.read_text(encoding="utf-8"))
+        for run in document.get("runs", []):
+            for result in run.get("results", []):
+                # Keep the canonical worldbisect:// location in report.sarif.
+                # Code Scanning requires a relative/file URI and a location.
+                result["locations"] = [{
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": "worldbisect-action/report.sarif"},
+                        "region": {"startLine": 1},
+                    }
+                }]
+        target.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+        PY
+
+    - name: Upload SARIF to Code Scanning
+      if: >-
+        always() && steps.run.outcome == 'success' &&
+        ((github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
+        github.event.pull_request.head.repo.full_name == github.repository)
+      uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+      with:
+        sarif_file: ${{ runner.temp }}/worldbisect-action/artifacts/github-code-scanning.sarif
+        category: worldbisect-${{ inputs.artifact-name }}
+
+    - name: Validate PR comment configuration
+      if: >-
+        always() && inputs.comment-pr == 'true' &&
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        inputs.github-token == ''
+      shell: bash
+      run: echo 'comment-pr=true requires github-token or workflow token access' >&2; exit 1
+
+    - name: Update pull request summary comment
+      if: >-
+        always() && inputs.comment-pr == 'true' &&
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        steps.run.outcome == 'success'
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      env:
+        REPORT_PATH: ${{ steps.run.outputs.report-path }}
+        STATUS: ${{ steps.run.outputs.status }}
+        ANALYSIS_ID: ${{ steps.run.outputs.analysis-id }}
+        REPORT_URL: ${{ inputs.report-url }}
+        REPORT_ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
+        EVIDENCE_ARTIFACT_URL: ${{ steps.upload-evidence.outputs.artifact-url }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      with:
+        github-token: ${{ inputs.github-token || github.token }}
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- worldbisect-diagnosis -->';
+          let report = '';
+          try {
+            report = fs.readFileSync(process.env.REPORT_PATH, 'utf8').trim();
+          } catch (error) {
+            report = 'The Markdown report was not available on the runner.';
+          }
+          const maxReportLength = 12000;
+          if (report.length > maxReportLength) {
+            report = `${report.slice(0, maxReportLength)}\n\n_Report truncated; see the uploaded artifact for the complete report._`;
+          }
+          const links = [];
+          if (process.env.REPORT_URL) links.push(`[report](${process.env.REPORT_URL})`);
+          else if (process.env.REPORT_ARTIFACT_URL) links.push(`[report artifact](${process.env.REPORT_ARTIFACT_URL})`);
+          if (process.env.EVIDENCE_ARTIFACT_URL) links.push(`[diagnostic evidence](${process.env.EVIDENCE_ARTIFACT_URL})`);
+          const body = [
+            marker,
+            '## WorldBisect diagnosis',
+            '',
+            `- Status: \`${process.env.STATUS || 'unavailable'}\``,
+            `- Analysis: \`${process.env.ANALYSIS_ID || 'unavailable'}\``,
+            `- Exit policy: \`${process.env.FAIL_ON || 'never'}\``,
+            links.length ? `- ${links.join(' · ')}` : '',
+            '',
+            report,
+          ].filter(Boolean).join('\n');
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner, repo, issue_number, per_page: 100,
+          });
+          const existing = comments.find(comment =>
+            comment.user?.type === 'Bot' && comment.body?.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
+
     - name: Publish WorldBisect summary
       if: always()
       shell: bash
@@ -157,6 +291,9 @@ runs:
           if [[ -n "${EVIDENCE_ARTIFACT_URL:-}" ]]; then
             echo "- Diagnostic artifact: [$EVIDENCE_ARTIFACT_URL]($EVIDENCE_ARTIFACT_URL)"
           fi
+          echo "- JUnit report: `${RUNNER_TEMP}/worldbisect-action/artifacts/report.junit.xml` (published as a check when write access is available)"
+          echo "- SARIF report: `${RUNNER_TEMP}/worldbisect-action/artifacts/report.sarif` (uploaded to Code Scanning when write access is available)"
+          echo "- Exit policy: `${{ inputs.fail-on }}` (applied after report and evidence publication)"
           echo
           if [[ -n "${REPORT_PATH:-}" && -f "$REPORT_PATH" ]]; then
             cat "$REPORT_PATH"

@@ -206,8 +206,45 @@ inside `GITHUB_WORKSPACE`.
 The Action writes the diagnosis to `$GITHUB_STEP_SUMMARY`, exposes the status
 and analysis ID as outputs, and links directly to the Markdown report and
 diagnostic artifact. It uploads the Markdown, JSON, JUnit, SARIF, certificate,
-and redacted handoff before applying the `fail-on` policy. It does not repair
-the workspace or upload raw workspace contents automatically.
+and redacted handoff before applying the `fail-on` policy. With `checks: write`
+and `security-events: write`, it also publishes JUnit as a check and SARIF to
+Code Scanning. With `pull-requests: write`, `comment-pr: true`, and a
+`github-token`, it updates one understandable summary comment on same-repository
+pull requests. Fork pull requests keep the reports in artifacts and the Step
+Summary without receiving a write-capable token.
+
+### Team integration and pull-request output
+
+Use these permissions when the workflow is trusted to publish checks and a PR
+comment. Keep the comment opt-in; do not grant write permissions to workflows
+that execute untrusted fork code:
+
+```yaml
+permissions:
+  contents: read
+  checks: write
+  security-events: write
+  pull-requests: write
+
+steps:
+  - uses: ClusterPilot-System/worldbisect@65e217a1e759bd35a0039d5dfcb17f8aebec01d2 # v1.1.1
+    id: worldbisect
+    with:
+      command: ./ci/check.sh
+      good-workspace: packages/api/fixtures/good
+      bad-workspace: packages/api/fixtures/bad
+      artifact-name: worldbisect-api
+      fail-on: proven
+      comment-pr: true
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The action always writes a bounded Markdown summary to `GITHUB_STEP_SUMMARY`.
+The JUnit and SARIF files remain available through the uploaded artifact even
+when a fork cannot publish checks. The `junit-path` and `sarif-path` outputs
+allow a workflow to add another report publisher without rerunning analysis.
+For a complete matrix covering multiple packages, see
+[`examples/github-actions/monorepo.yml`](examples/github-actions/monorepo.yml).
 
 For a reproducible local terminal demonstration and a recording checklist, see
 [`docs/quickstart-demo.md`](docs/quickstart-demo.md).
@@ -256,8 +293,20 @@ For CI integrations, `compare` and `explain` also support `--format junit` and
 `--format sarif`. JUnit marks `PROVEN` and `SUPPORTED` as failures and the
 other statuses as explicit skips. SARIF emits an `error` for `PROVEN`, a
 `warning` for `SUPPORTED` or `CORRELATED`, and a `note` for `UNPROVEN`.
-Formatting alone exits with code `0`; use `--fail-on proven`, `supported`,
-`correlated`, or `any` to make selected statuses exit with code `1`.
+
+The exit-code policy is deliberately separate from report formatting:
+
+| `--fail-on` | Exit `1` for | Typical use |
+| --- | --- | --- |
+| `never` (default) | no proof status | publish evidence without gating |
+| `proven` | `PROVEN` | block on a confirmed causal difference |
+| `supported` | `PROVEN` or `SUPPORTED` | block on confirmed or supported causes |
+| `correlated` | `PROVEN`, `SUPPORTED`, or `CORRELATED` | block on any actionable correlation |
+| `any` | every proof status, including `UNPROVEN` | strict diagnostic gate |
+
+Formatting alone exits `0`; operational errors always exit `1`. The GitHub
+Action uploads reports and evidence first, then applies the selected policy,
+so a failing gate does not hide the diagnostics.
 
 ## Commands
 
