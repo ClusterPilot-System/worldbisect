@@ -30,6 +30,9 @@ type Request struct {
 	Command   model.CommandSpec
 	Oracle    model.Oracle
 	Limits    model.CaptureLimits
+	// TraceMode controls native syscall tracing. Empty and "auto" preserve the
+	// default native tracing behavior; "off" selects portable capture.
+	TraceMode string
 }
 
 type Capturer struct {
@@ -84,7 +87,7 @@ func (capturer *Capturer) capture(ctx context.Context, request Request, binding 
 		Environment:    model.EnvironmentToList(request.Command.Environment),
 		Timeout:        time.Duration(request.Command.TimeoutMS) * time.Millisecond,
 		MaxOutputBytes: limits.MaxOutputBytes,
-		Trace:          true,
+		Trace:          request.TraceMode != "off",
 		Executable:     binding,
 	})
 	finished := time.Now().UTC()

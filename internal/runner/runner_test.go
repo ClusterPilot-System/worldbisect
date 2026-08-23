@@ -53,6 +53,26 @@ func TestTracedTimeoutDoesNotBlockOnWait(t *testing.T) {
 	}
 }
 
+func TestTracedCommandCompletes(t *testing.T) {
+	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
+		t.Skip("native tracer is only available on Linux AMD64")
+	}
+	result, err := New().Run(context.Background(), Request{
+		Command:        []string{"/bin/sh", "-c", "exit 7"},
+		Timeout:        time.Second,
+		MaxOutputBytes: 1024,
+		Trace:          true,
+	})
+	for _, boundary := range result.Boundaries {
+		if boundary == "ptrace options unavailable" {
+			t.Skip("ptrace is unavailable in this Linux environment")
+		}
+	}
+	if err == nil || result.ExitCode != 7 || result.TimedOut {
+		t.Fatalf("expected traced exit code 7: result=%+v err=%v", result, err)
+	}
+}
+
 func TestBindingRejectsModifiedExecutable(t *testing.T) {
 	root := t.TempDir()
 	executable := filepath.Join(root, "tool")

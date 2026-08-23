@@ -61,3 +61,15 @@ func TestHandoffRequiresPreviewAndConfirmation(t *testing.T) {
 		t.Fatalf("handoff result omitted incident ID: %s", result.String())
 	}
 }
+
+func TestHelpAliasesPrintUsage(t *testing.T) {
+	for _, arguments := range [][]string{{"--help"}, {"-h"}, {"help", "capture"}, {"capture", "--help"}} {
+		var output bytes.Buffer
+		if err := run(arguments, &output, &bytes.Buffer{}); err != nil {
+			t.Fatalf("%v: %v", arguments, err)
+		}
+		if !strings.Contains(output.String(), "worldbisect capture") {
+			t.Fatalf("%v did not print usage: %s", arguments, output.String())
+		}
+	}
+}

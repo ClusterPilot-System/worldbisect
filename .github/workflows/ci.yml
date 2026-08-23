@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: Published release version to consume in the release E2E job
+        required: false
+        default: '1.1.1'
+        type: string
+  schedule:
+    - cron: '17 3 * * 1'
 
 permissions:
   contents: read
@@ -106,6 +114,20 @@ jobs:
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           sarif_file: build/diagnostics/github-code-scanning.sarif
+
+  release-consumption:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release E2E harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Consume published release package
+        env:
+          WORLDBISECT_RELEASE_VERSION: ${{ inputs.release_version || '1.1.1' }}
+        run: ./scripts/release-e2e.sh
 
   arm64-runtime:
     runs-on: ubuntu-22.04-arm

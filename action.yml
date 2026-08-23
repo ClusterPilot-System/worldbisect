@@ -18,9 +18,9 @@ inputs:
   version:
     description: WorldBisect release version without the leading v
     required: false
-    default: '1.1.0'
+    default: '1.1.1'
   sha256:
-    description: Optional SHA-256 of the selected archive. Defaults to the verified official v1.1.0 digest for the runner architecture.
+    description: Optional SHA-256 of the selected archive. Defaults to the verified official v1.1.1 digest for the runner architecture.
     required: false
     default: ''
   repository:
@@ -195,10 +195,15 @@ runs:
       if: >-
         always() && inputs.comment-pr == 'true' &&
         github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        inputs.github-token == ''
+        github.event.pull_request.head.repo.full_name == github.repository
       shell: bash
-      run: echo 'comment-pr=true requires github-token or workflow token access' >&2; exit 1
+      env:
+        WORLDBISECT_GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+      run: |
+        if [[ -z "${WORLDBISECT_GITHUB_TOKEN:-}" ]]; then
+          echo 'comment-pr=true requires workflow token access' >&2
+          exit 1
+        fi
 
     - name: Update pull request summary comment
       if: >-

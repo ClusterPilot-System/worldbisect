@@ -105,7 +105,7 @@ func (runner *Runner) Run(ctx context.Context, request Request) (*model.ProcessR
 	if request.Trace && nativeTracerAvailable() && !raceEnabled {
 		consulted, boundaries, runErr = runTraced(ctx, command)
 		var tracedExit tracedExitError
-		if runErr != nil && !errors.As(runErr, &tracedExit) {
+		if runErr != nil && !errors.As(runErr, &tracedExit) && !errors.Is(runErr, context.DeadlineExceeded) {
 			boundaries = append(boundaries, "native syscall tracing failed; basic capture rerun used: "+runErr.Error())
 			fallbackCtx, fallbackCancel := context.WithTimeout(parentCtx, request.Timeout)
 			command, stdout, stderr = newCommand()

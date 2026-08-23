@@ -41,6 +41,13 @@ These can be `CORRELATED`, `SUPPORTED` by operator evidence, or `UNPROVEN`.
 
 Native selected-syscall tracing is implemented for Linux AMD64. Other architectures use basic capture. ARM64 release artifacts are cross-compiled and structurally validated; runtime equivalence with AMD64 native tracing is not claimed.
 
+Native tracing is best-effort and fail-safe. On WSL, workspaces mounted below
+`/mnt` can expose ptrace/wait behavior that is not equivalent to a native Linux
+filesystem. Run `worldbisect doctor` before a capture; if it reports the WSL
+environment warning, move the workspace into the Linux filesystem or use
+`worldbisect capture --trace=off ...` for the portable evidence path. The
+portable path remains bounded and explicit about its evidence boundary.
+
 ## Security boundaries
 
 The tool cannot make an untrusted command safe. Run unknown commands inside an independently hardened sandbox. WorldBisect isolation is designed for experiment reproducibility and original-workspace protection, not as a complete malicious-code containment boundary.

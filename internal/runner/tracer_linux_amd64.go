@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -15,7 +17,7 @@ import (
 const syscallExecveAt = 322
 const traceWaitPollInterval = 10 * time.Millisecond
 
-func nativeTracerAvailable() bool { return true }
+func nativeTracerAvailable() bool { return !runningOnWSL() }
 
 func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, error) {
 	command.SysProcAttr.Ptrace = true
@@ -39,10 +41,11 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 		return nil, nil, err
 	}
 	if err := syscall.PtraceSetOptions(pid, syscall.PTRACE_O_TRACESYSGOOD|syscall.PTRACE_O_TRACEEXEC|syscall.PTRACE_O_TRACECLONE|syscall.PTRACE_O_TRACEFORK|syscall.PTRACE_O_TRACEVFORK); err != nil {
-		_ = command.Process.Kill()
+		killAndReapTracees(pid, map[int]bool{pid: true})
 		return nil, []string{"ptrace options unavailable"}, err
 	}
 	if err := syscall.PtraceSyscall(pid, 0); err != nil {
+		killAndReapTracees(pid, map[int]bool{pid: true})
 		return nil, nil, err
 	}
 
@@ -64,6 +67,7 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 			if errors.Is(err, syscall.ECHILD) {
 				break
 			}
+			killAndReapTracees(pid, processes)
 			return paths, nil, err
 		}
 		if waitStatus.Exited() || waitStatus.Signaled() {
@@ -100,6 +104,7 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 				signal = 0
 			}
 			if err := syscall.PtraceSyscall(waited, int(signal)); err != nil && !errors.Is(err, syscall.ESRCH) {
+				killAndReapTracees(pid, processes)
 				return paths, nil, err
 			}
 		}
@@ -121,7 +126,6 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 	}
 	return paths, nil, nil
 }
-
 func killAndReapTracees(pid int, processes map[int]bool) {
 	_ = syscall.Kill(-pid, syscall.SIGKILL)
 	deadline := time.Now().Add(time.Second)
@@ -137,6 +141,19 @@ func killAndReapTracees(pid int, processes map[int]bool) {
 		}
 		time.Sleep(traceWaitPollInterval)
 	}
+}
+
+func runningOnWSL() bool {
+	for _, path := range []string{"/proc/version", "/proc/sys/kernel/osrelease"} {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			value := strings.ToLower(string(content))
+			if strings.Contains(value, "microsoft") || strings.Contains(value, "wsl") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func syscallPaths(pid int, registers syscall.PtraceRegs) []string {

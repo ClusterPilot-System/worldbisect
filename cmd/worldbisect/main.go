@@ -48,7 +48,7 @@ Usage:
   worldbisect serve [options]
   worldbisect version
 
-Run "worldbisect help <command>" for command-specific help.
+Run "worldbisect help <command>" or "worldbisect --help" for more help.
 `
 
 func main() {
@@ -63,12 +63,19 @@ func run(args []string, stdout, stderr io.Writer) error {
 		fmt.Fprint(stdout, usageText)
 		return nil
 	}
+	if args[0] == "--help" || args[0] == "-h" {
+		fmt.Fprint(stdout, usageText)
+		return nil
+	}
+	if len(args) > 1 && (args[1] == "--help" || args[1] == "-h" || args[1] == "-help") {
+		return writeCommandHelp(args[0], stdout)
+	}
 	if args[0] == "help" {
 		if len(args) == 1 {
 			fmt.Fprint(stdout, usageText)
 			return nil
 		}
-		args = append([]string{args[1], "-help"}, args[2:]...)
+		return writeCommandHelp(args[1], stdout)
 	}
 
 	switch args[0] {
@@ -98,6 +105,29 @@ func run(args []string, stdout, stderr io.Writer) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func writeCommandHelp(command string, stdout io.Writer) error {
+	switch command {
+	case "capture":
+		fmt.Fprintln(stdout, "Usage: worldbisect capture [options] -- command [args...]")
+		fmt.Fprintln(stdout, "  --trace auto|on|off    native syscall tracing mode (default: auto)")
+		fmt.Fprintln(stdout, "  --oracle exit=0        machine-checkable command oracle")
+		fmt.Fprintln(stdout, "  --workspace PATH       workspace root (default: current directory)")
+	case "compare":
+		fmt.Fprintln(stdout, "Usage: worldbisect compare [options] -- command [args...]")
+		fmt.Fprintln(stdout, "  --format text|json|junit|sarif")
+		fmt.Fprintln(stdout, "  --fail-on never|proven|supported|correlated|any")
+	case "explain":
+		fmt.Fprintln(stdout, "Usage: worldbisect explain [options] <analysis-id>")
+	case "doctor":
+		fmt.Fprintln(stdout, "Usage: worldbisect doctor [options]")
+	case "version":
+		fmt.Fprintln(stdout, "Usage: worldbisect version")
+	default:
+		fmt.Fprint(stdout, usageText)
+	}
+	return nil
 }
 
 func defaultStore() string {
@@ -141,10 +171,14 @@ func runCapture(args []string, stdout io.Writer) error {
 	maxWorkspaceFiles := set.Int("max-workspace-files", 10000, "maximum workspace files to scan")
 	maxWorkspaceBytes := set.Int64("max-workspace-bytes", 1<<30, "maximum workspace bytes to scan")
 	maxOutputBytes := set.Int64("max-output-bytes", 8<<20, "maximum captured stdout and stderr bytes")
+	traceMode := set.String("trace", "auto", "native syscall tracing: auto, on, or off")
 	output := set.String("output", "", "portable bundle output")
 	format := set.String("format", "text", "text or json")
 	if err := set.Parse(flags); err != nil {
 		return err
+	}
+	if *traceMode != "auto" && *traceMode != "on" && *traceMode != "off" {
+		return fmt.Errorf("unsupported --trace value %q (use auto, on, or off)", *traceMode)
 	}
 	root, err := filepath.Abs(*workspace)
 	if err != nil {
@@ -176,8 +210,9 @@ func runCapture(args []string, stdout io.Writer) error {
 			TimeoutMS:   timeout.Milliseconds(),
 			Environment: model.EnvironmentFromList(os.Environ()),
 		},
-		Oracle: parsedOracle,
-		Limits: model.CaptureLimits{MaxWorkspaceFiles: *maxWorkspaceFiles, MaxWorkspaceBytes: *maxWorkspaceBytes, MaxOutputBytes: *maxOutputBytes, Timeout: *timeout},
+		Oracle:    parsedOracle,
+		TraceMode: *traceMode,
+		Limits:    model.CaptureLimits{MaxWorkspaceFiles: *maxWorkspaceFiles, MaxWorkspaceBytes: *maxWorkspaceBytes, MaxOutputBytes: *maxOutputBytes, Timeout: *timeout},
 	})
 	if record != nil && *output != "" {
 		if err := artifact.ExportCapture(dataStore, record.ID, *output); err != nil {
@@ -529,7 +564,27 @@ func runDoctor(args []string, stdout io.Writer) error {
 		{"name": "store_parent", "ok": writableParent(*storePath), "value": *storePath},
 		{"name": "native_trace", "ok": runtime.GOOS == "linux" && runtime.GOARCH == "amd64", "value": "linux/amd64 only in 1.0"},
 	}
+	if isWSL() {
+		checks = append(checks, map[string]any{
+			"name":  "native_trace_environment",
+			"ok":    false,
+			"value": "WSL detected; use a native Linux filesystem or --trace=off for /mnt workspaces",
+		})
+	}
 	return writeJSON(stdout, map[string]any{"version": version.String(), "checks": checks})
+}
+
+func isWSL() bool {
+	for _, path := range []string{"/proc/version", "/proc/sys/kernel/osrelease"} {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			value := strings.ToLower(string(content))
+			if strings.Contains(value, "microsoft") || strings.Contains(value, "wsl") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func runServe(args []string, stdout, stderr io.Writer) error {
