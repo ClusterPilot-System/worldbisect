@@ -4,6 +4,11 @@
 
 WorldBisect determines whether a smallest supported factor set is necessary and sufficient for an observed command failure within a declared intervention model.
 
+The public product explanation for this contract is
+[`proof-boundary.md`](proof-boundary.md). It also documents the distinction
+between a verified causal result and observations or hypotheses from logs,
+tracing, Git bisect, and AI-assisted debugging.
+
 It is not a universal debugger. It does not infer kernel, hardware, external-service, or distributed causality without control over those factors.
 
 ## System context

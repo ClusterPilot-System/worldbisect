@@ -8,6 +8,10 @@ No. The proof result is produced by executed counterfactual experiments, a decla
 
 No. It consumes runtime evidence and complements logs, tracing, record/replay, tests, and Git bisect.
 
+The distinction is important: those tools can show observations or a changed
+commit, while WorldBisect only reports `PROVEN` after bounded, bidirectional
+intervention experiments. See [`proof-boundary.md`](proof-boundary.md).
+
 ## Can it prove any Linux cause?
 
 No. Version 1.0 proves only causes within its bounded intervention model. Other factors are reported as boundaries.

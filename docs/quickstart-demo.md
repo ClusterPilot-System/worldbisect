@@ -4,6 +4,11 @@ This guide produces a real `PROVEN` result from the checked-in file-cause
 fixture. It is suitable for a terminal recording because every input is local,
 deterministic, and safe to repeat.
 
+The result is intentionally bounded: it verifies the selected workspace file
+for this command and oracle, not every possible cause. See the
+[`proof-boundary.md`](proof-boundary.md) contract before presenting the demo as
+a product claim.
+
 ## Run locally
 
 From the repository root on Linux or WSL:

@@ -12,6 +12,12 @@ worldbisect compare --good good.wcap --bad bad.wcap -- ./application
 
 For supported factors, a `PROVEN` result means the minimized factor set repairs the bad world and reproduces the failure when applied in the opposite direction. Unsupported or uncontrolled factors are reported as evidence boundaries rather than guessed causes.
 
+This is the long-term product promise: WorldBisect delivers a verifiable cause
+within a declared proof boundary, not just more logs. Read the
+[`proof-boundary.md`](docs/proof-boundary.md) contract for the precise meaning
+of each result and how it differs from Git bisect, tracing, logs, and AI
+debuggers.
+
 ## Why WorldBisect
 
 Linux debugging tools answer important partial questions:
@@ -24,6 +30,12 @@ Linux debugging tools answer important partial questions:
 WorldBisect asks a different question:
 
 > Which smallest supported set of runtime conditions was necessary for this observed failure?
+
+The answer is deliberately bounded. A `PROVEN` status means that the selected
+factor was changed in isolated experiments, repaired the bad world, reproduced
+the failure in the reverse direction, and passed the configured proof checks.
+It does not mean that all possible causes were searched or that an uncontrolled
+host factor is safe to ignore.
 
 The 1.0 causal contract is intentionally bounded. It can intervene on non-secret environment variables and regular workspace objects, including file content, file mode, presence, directories, and symbolic links. Host files, shared libraries, mounts, resources, network observations, secret values, kernel scheduling, hardware, and distributed systems can be captured as evidence but are not automatically promoted to `PROVEN` causes in 1.0.
 
