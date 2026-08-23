@@ -9,6 +9,23 @@ WorldBisect 1.x is maintained as a stable, bounded Linux diagnostic package. Con
 3. Use a public issue for normal defects and GitHub private vulnerability reporting for security-sensitive findings.
 4. Never upload real credentials, private captures, customer data, or proprietary binaries.
 
+## First contribution
+
+The safest way to start is a documentation-only issue with a bounded acceptance
+checklist:
+
+- [Issue #36: add a native tracer troubleshooting example](https://github.com/ClusterPilot-System/worldbisect/issues/36)
+- [Issue #37: add a sanitized diagnostic handoff walkthrough](https://github.com/ClusterPilot-System/worldbisect/issues/37)
+
+Both are labeled `good first issue` and `documentation`. Comment on the issue
+before starting so maintainers can reserve it and answer scope questions. A
+first contribution should change only the named files, include link/command
+validation, and avoid introducing a new dependency or broadening the Linux
+support contract.
+
+For questions, use [GitHub Discussions](https://github.com/ClusterPilot-System/worldbisect/discussions)
+when the topic is not a reproducible defect or private security report.
+
 ## Development
 
 Required tools:
