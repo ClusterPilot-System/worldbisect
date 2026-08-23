@@ -420,5 +420,8 @@ WorldBisect is licensed under Apache License 2.0. Contributions are welcome for 
 - [`GOVERNANCE.md`](GOVERNANCE.md)
 - [`SECURITY.md`](SECURITY.md)
 - [`PROVENANCE.md`](PROVENANCE.md)
+- [`Community guide`](docs/community.md) — Discussions, monthly notes, and consented case reports
+- [`Public 1.x roadmap`](ROADMAP.md)
+- [`Monthly maintenance notes`](docs/maintenance/)
 
 Security vulnerabilities must be reported privately through GitHub private vulnerability reporting.

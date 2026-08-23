@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Community
+
+- Added contributor onboarding with two concrete `good first issue` tickets,
+  public Discussions guidance, a bounded 1.x roadmap, and monthly maintenance
+  notes.
+- Added a consented/anonymized user-report intake form and publication gate;
+  no synthetic demo is presented as real user evidence.
+
 ### Security
 
 - Future GitHub releases are published through the repository's Immutable

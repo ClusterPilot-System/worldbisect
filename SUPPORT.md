@@ -12,6 +12,13 @@ Public GitHub issues may be used for:
 - performance regressions;
 - documentation corrections.
 
+Use [GitHub Discussions](https://github.com/ClusterPilot-System/worldbisect/discussions)
+for supported usage questions, bounded ideas, release announcements, and
+consented anonymized user reports. See the
+[community guide](docs/community.md) before sharing a case. Discussions and
+issues are public; remove secrets, private captures, customer details, and
+identifying infrastructure information first.
+
 Security vulnerabilities and sensitive proof-integrity failures must use GitHub private vulnerability reporting.
 
 ## Required information

@@ -6,3 +6,6 @@ contact_links:
   - name: User documentation
     url: https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/user-guide.md
     about: Read the supported workflows, evidence levels, and limitations.
+  - name: Community Discussions
+    url: https://github.com/ClusterPilot-System/worldbisect/discussions
+    about: Ask supported usage questions, propose bounded ideas, or share a consented report.

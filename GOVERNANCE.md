@@ -29,3 +29,12 @@ Governance changes require a public pull request and approval from an active mai
 ## Project continuity
 
 If no listed maintainer is active for 90 days, contributors may open a governance issue proposing new maintainers. Transfer of release authority must be recorded publicly and must not alter existing Apache-2.0 rights.
+
+## Community record
+
+GitHub Discussions are enabled for scoped questions, ideas, announcements, and
+consented show-and-tell reports. Reproducible defects belong in public issues;
+security vulnerabilities and sensitive proof-integrity failures belong in
+private reporting. Monthly release and maintenance notes are published under
+[`docs/maintenance/`](docs/maintenance/) and must not contain private evidence
+or unverified support claims.
