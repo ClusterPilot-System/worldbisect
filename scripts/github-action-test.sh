@@ -5,6 +5,13 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+
+grep -q '^  comment-pr:' action.yml
+grep -q '^  github-token:' action.yml
+grep -q 'Publish JUnit test check' action.yml
+grep -q 'Prepare SARIF for Code Scanning' action.yml
+grep -q 'Update pull request summary comment' action.yml
+
 binary="$tmp/worldbisect"
 # The race build deliberately disables the native ptrace tracer. This keeps the
 # local WSL harness deterministic; GitHub-hosted Linux runners exercise native
@@ -52,6 +59,8 @@ run_action() {
 
 INPUT_SHA256_TEST='' run_action never "$tmp/no-sha256"
 grep -q '^status=PROVEN$' "$tmp/no-sha256/outputs"
+grep -q "^junit-path=$tmp/no-sha256/artifacts/report.junit.xml$" "$tmp/no-sha256/outputs"
+grep -q "^sarif-path=$tmp/no-sha256/artifacts/report.sarif$" "$tmp/no-sha256/outputs"
 
 run_action never "$tmp/pass"
 test -s "$tmp/pass/artifacts/report.md"
@@ -62,6 +71,8 @@ test -s "$tmp/pass/artifacts/handoff-preview.json"
 test -s "$tmp/pass/artifacts/diagnosis.wdiag"
 test -s "$tmp/pass/artifacts/result.wbc"
 grep -q '^status=PROVEN$' "$tmp/pass/outputs"
+grep -q "^junit-path=$tmp/pass/artifacts/report.junit.xml$" "$tmp/pass/outputs"
+grep -q "^sarif-path=$tmp/pass/artifacts/report.sarif$" "$tmp/pass/outputs"
 grep -qx '0' "$tmp/pass/exit-code"
 
 run_action proven "$tmp/fail"

@@ -1,0 +1,49 @@
+name: Diagnose monorepo workspaces
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Checks and Code Scanning are visible only when the workflow has write access.
+# Fork pull requests intentionally remain read-only; their Step Summary and
+# artifacts are still published.
+permissions:
+  contents: read
+  checks: write
+  security-events: write
+  pull-requests: write
+
+jobs:
+  diagnose:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            command: ./packages/api/ci/check.sh
+            good: packages/api/fixtures/good
+            bad: packages/api/fixtures/bad
+          - name: web
+            command: ./packages/web/ci/check.sh
+            good: packages/web/fixtures/good
+            bad: packages/web/fixtures/bad
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Diagnose ${{ matrix.name }} workspace difference
+        id: worldbisect
+        uses: ClusterPilot-System/worldbisect@65e217a1e759bd35a0039d5dfcb17f8aebec01d2 # v1.1.1
+        with:
+          command: ${{ matrix.command }}
+          good-workspace: ${{ matrix.good }}
+          bad-workspace: ${{ matrix.bad }}
+          version: 1.1.1
+          sha256: 5725bd04acdd9bedefddf899fd1bae19f914dd2d8db3d60eae4156d0324202c6
+          artifact-name: worldbisect-${{ matrix.name }}
+          fail-on: proven
+          # Avoid matrix jobs racing to update one PR comment. The API entry
+          # is the single human-facing summary; every job still publishes its
+          # own Step Summary, JUnit check, SARIF result, and artifact.
+          comment-pr: ${{ matrix.name == 'api' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
