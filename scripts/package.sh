@@ -24,12 +24,14 @@ archive_tree() {
 for arch in amd64 arm64; do
   name="worldbisect_${VERSION}_linux_${arch}"
   stage="$DIST/$name"
-  mkdir -p "$stage/bin" "$stage/docs/man" "$stage/configs" "$stage/packaging"
+  mkdir -p "$stage/bin" "$stage/docs/man" "$stage/configs" "$stage/packaging" "$stage/scripts"
   GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "$LDFLAGS" -o "$stage/bin/worldbisect" ./cmd/worldbisect
   GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "$LDFLAGS" -o "$stage/bin/worldbisectd" ./cmd/worldbisectd
-  cp LICENSE README.md CHANGELOG.md SECURITY.md "$stage/"
+  cp LICENSE NOTICE README.md CHANGELOG.md SECURITY.md "$stage/"
   cp docs/man/* "$stage/docs/man/"
   cp configs/worldbisect.example.json "$stage/configs/"
+  cp scripts/install.sh "$stage/scripts/"
+  chmod 0755 "$stage/scripts/install.sh"
   cp packaging/systemd/worldbisectd.service "$stage/packaging/"
   cp packaging/tmpfiles.d/worldbisect.conf "$stage/packaging/worldbisect.tmpfiles.conf"
   cp packaging/sysusers.d/worldbisect.conf "$stage/packaging/worldbisect.sysusers.conf"

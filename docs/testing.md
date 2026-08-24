@@ -43,7 +43,8 @@ Exercise real process execution, output limits, process-group timeout, native Li
 
 `scripts/release-e2e.sh` runs the same contract against an extracted release
 package instead of a source-built binary. It verifies the selected archive
-against `SHA256SUMS`, checks both packaged binaries and then executes the full
+against `SHA256SUMS`, checks both packaged binaries, exercises the bundled
+`scripts/install.sh` into an isolated `DESTDIR`, and then executes the full
 capture/import/compare/handoff/report/certificate/audit flow. The release check
 invokes this locally for the package produced by `make release`; the scheduled
 CI consumer job downloads a published GitHub release and runs it unchanged.
