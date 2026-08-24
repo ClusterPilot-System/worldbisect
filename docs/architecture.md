@@ -53,7 +53,7 @@ The REST API is versioned under `/api/v1`. The embedded dashboard is static HTML
 
 The runner starts a new process group, applies timeout and output limits, captures process identity and resource evidence, and terminates the entire group on cancellation or timeout.
 
-On Linux AMD64, a bounded `ptrace` tracer records selected filesystem-related syscalls and consulted paths. Other platforms use basic capture.
+On native Linux AMD64, a bounded `ptrace` tracer records selected filesystem-related syscalls and consulted paths. WSL and other platforms use basic capture when the native ptrace contract is not reliable.
 
 ### Workspace capture
 

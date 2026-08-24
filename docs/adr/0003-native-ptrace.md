@@ -9,7 +9,7 @@ Capture must observe files consulted by arbitrary binaries without requiring lan
 
 ## Decision
 
-Linux AMD64 uses a native bounded `ptrace` tracer for selected filesystem-related system calls. Unsupported platforms use the portable basic capture path.
+Linux AMD64 uses a native bounded `ptrace` tracer for selected filesystem-related system calls. WSL is detected at runtime and uses the portable basic capture path because mounted workspaces do not provide a reliable ptrace contract. Unsupported platforms use the portable basic capture path.
 
 The tracer is observational. It does not grant automatic causal status to host paths or libraries.
 

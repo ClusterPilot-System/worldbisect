@@ -41,6 +41,13 @@ Exercise real process execution, output limits, process-group timeout, native Li
 9. authenticated API read;
 10. audit-chain verification.
 
+`scripts/release-e2e.sh` runs the same contract against an extracted release
+package instead of a source-built binary. It verifies the selected archive
+against `SHA256SUMS`, checks both packaged binaries and then executes the full
+capture/import/compare/handoff/report/certificate/audit flow. The release check
+invokes this locally for the package produced by `make release`; the scheduled
+CI consumer job downloads a published GitHub release and runs it unchanged.
+
 ### Race detector
 
 ```bash
@@ -59,8 +66,12 @@ Bundle export is run twice and compared byte-for-byte. Release packaging is run 
 make check
 make test-race
 make e2e
+./scripts/release-e2e.sh --version 1.1.1
 make coverage
 ```
+
+The published-release check requires the GitHub CLI (`gh`) and network access.
+For a local package, pass `--archive` and `--checksum-file` instead.
 
 ## Architecture coverage
 

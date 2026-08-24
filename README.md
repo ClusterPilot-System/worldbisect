@@ -45,7 +45,7 @@ WorldBisect 1.0 is released as a stable, maintenance-oriented package for Linux.
 
 Supported release platforms:
 
-- Linux AMD64: native syscall capture with a bounded `ptrace` tracer;
+- Linux AMD64: native syscall capture with a bounded `ptrace` tracer (WSL uses the fail-safe portable path);
 - Linux ARM64: portable basic capture fallback;
 - other platforms: source compatibility is not part of the 1.0 release contract.
 
@@ -65,7 +65,7 @@ sudo ./scripts/install.sh
 ### Debian package
 
 ```bash
-sudo dpkg -i worldbisect_1.1.0_linux_amd64.deb
+sudo dpkg -i worldbisect_1.1.1_linux_amd64.deb
 ```
 
 ### From source
@@ -156,18 +156,18 @@ and pin the Action to a reviewed commit or immutable release:
     command: ./check.sh
     good-workspace: demo/good
     bad-workspace: demo/bad
-    version: 1.1.0
+    version: 1.1.1
     fail-on: proven
 ```
 
-For the official `ClusterPilot-System/worldbisect` `v1.1.0` release, the
+For the official `ClusterPilot-System/worldbisect` `v1.1.1` release, the
 Action selects and verifies the correct built-in digest for Linux AMD64 or
 ARM64. You can still provide an explicit digest when using a custom release or
 repository:
 
 ```yaml
-    # Optional explicit Linux AMD64 digest for v1.1.0:
-    # sha256: 74602fb5a1894eaf63ef12178fa5d9ff53b6369a9277f17021c3733f18f7d757
+    # Optional explicit Linux AMD64 digest for v1.1.1:
+    # sha256: 5725bd04acdd9bedefddf899fd1bae19f914dd2d8db3d60eae4156d0324202c6
 ```
 
 ### Action trust pins

@@ -278,7 +278,14 @@ A valid response confirms retained audit-chain linkage and hashes, not protectio
 worldbisect doctor
 ```
 
-Doctor reports platform, procfs, mount information, writable store location, and native tracer availability.
+Doctor reports platform, procfs, mount information, writable store location,
+native tracer availability, and a WSL warning when native tracing should be
+disabled or the workspace should be moved into the Linux filesystem.
+
+Capture uses native tracing automatically on Linux AMD64. Set
+`--trace=off` when the environment does not provide reliable ptrace behavior,
+for example a WSL workspace mounted below `/mnt`; the resulting report keeps
+the portable-capture boundary explicit.
 
 ## Daemon
 

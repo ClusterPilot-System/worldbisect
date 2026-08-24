@@ -27,17 +27,30 @@ printf 'mode=good\n' > "$good/config.txt"
 printf 'mode=bad\n' > "$bad/config.txt"
 
 mkdir -p "$work/bin"
-go build "${build_flags[@]}" -o "$work/bin/worldbisect" ./cmd/worldbisect
-go build "${build_flags[@]}" -o "$work/bin/worldbisectd" ./cmd/worldbisectd
+if [[ -n "${WORLDBISECT_E2E_BINARY:-}" ]]; then
+  binary="$WORLDBISECT_E2E_BINARY"
+  daemon_binary="${WORLDBISECT_E2E_DAEMON_BINARY:-}"
+else
+  go build "${build_flags[@]}" -o "$work/bin/worldbisect" ./cmd/worldbisect
+  go build "${build_flags[@]}" -o "$work/bin/worldbisectd" ./cmd/worldbisectd
+  binary="$work/bin/worldbisect"
+  daemon_binary="$work/bin/worldbisectd"
+fi
+[[ -x "$binary" ]] || { echo "missing e2e worldbisect binary: $binary" >&2; exit 1; }
+[[ -x "$daemon_binary" ]] || { echo "missing e2e worldbisectd binary: $daemon_binary" >&2; exit 1; }
+trace_args=()
+if [[ -n "${WORLDBISECT_E2E_TRACE:-}" ]]; then
+  trace_args=(--trace "$WORLDBISECT_E2E_TRACE")
+fi
 
-"$work/bin/worldbisect" capture --store "$store" --workspace "$good" --oracle exit=0 --output "$work/good.wcap" -- ./check.sh > "$work/good.out"
-if "$work/bin/worldbisect" capture --store "$store" --workspace "$bad" --oracle exit=0 --output "$work/bad.wcap" -- ./check.sh > "$work/bad.out" 2> "$work/bad.err"; then
+"$binary" capture "${trace_args[@]}" --store "$store" --workspace "$good" --oracle exit=0 --output "$work/good.wcap" -- ./check.sh > "$work/good.out"
+if "$binary" capture "${trace_args[@]}" --store "$store" --workspace "$bad" --oracle exit=0 --output "$work/bad.wcap" -- ./check.sh > "$work/bad.out" 2> "$work/bad.err"; then
   echo "bad capture unexpectedly succeeded" >&2
   exit 1
 fi
 
-"$work/bin/worldbisect" import --store "$imported" "$work/good.wcap" >/dev/null
-analysis_json=$("$work/bin/worldbisect" compare --store "$store" --good "$work/good.wcap" --bad "$work/bad.wcap" --format json --certificate "$work/result.wbc" -- ./check.sh)
+"$binary" import --store "$imported" "$work/good.wcap" >/dev/null
+analysis_json=$("$binary" compare --store "$store" --good "$work/good.wcap" --bad "$work/bad.wcap" --format json --certificate "$work/result.wbc" -- ./check.sh)
 printf '%s\n' "$analysis_json" > "$work/analysis.json"
 python3 - "$work/analysis.json" <<'PY'
 import json, sys
@@ -56,7 +69,7 @@ print(json.load(open(sys.argv[1]))["analysis_id"])
 PY
 )
 diagnostic_store="$work/diagnostic-store"
-handoff_preview=$("$work/bin/worldbisect" handoff --store "$store" --analysis "$analysis_id" --preview)
+handoff_preview=$("$binary" handoff --store "$store" --analysis "$analysis_id" --preview)
 printf '%s\n' "$handoff_preview" > "$work/handoff-preview.json"
 python3 - "$work/handoff-preview.json" <<'PY'
 import json, sys
@@ -65,18 +78,18 @@ assert value["incident_id"].startswith("inc-")
 assert value["confirmation_required"] is True
 assert value["redacted_fields"]
 PY
-"$work/bin/worldbisect" handoff --store "$store" --analysis "$analysis_id" --output "$work/diagnosis.wdiag" --confirm >/dev/null
-"$work/bin/worldbisect" import --store "$diagnostic_store" --certificate-output "$work/imported.wbc" "$work/diagnosis.wdiag" >/dev/null
-"$work/bin/worldbisect" explain --store "$diagnostic_store" "$analysis_id" >/dev/null
-"$work/bin/worldbisect" verify "$work/imported.wbc" > "$work/imported-verify.json"
+"$binary" handoff --store "$store" --analysis "$analysis_id" --output "$work/diagnosis.wdiag" --confirm >/dev/null
+"$binary" import --store "$diagnostic_store" --certificate-output "$work/imported.wbc" "$work/diagnosis.wdiag" >/dev/null
+"$binary" explain --store "$diagnostic_store" "$analysis_id" >/dev/null
+"$binary" verify "$work/imported.wbc" > "$work/imported-verify.json"
 python3 - "$work/imported-verify.json" <<'PY'
 import json, sys
 value=json.load(open(sys.argv[1]))
 assert value["valid"] is True, value
 PY
-"$work/bin/worldbisect" explain --store "$store" --format junit --report-url https://ci.example/report --bundle-url https://ci.example/bundle "$analysis_id" > "$work/analysis.junit.xml"
-"$work/bin/worldbisect" explain --store "$store" --format sarif --report-url https://ci.example/report --bundle-url https://ci.example/bundle "$analysis_id" > "$work/analysis.sarif"
-if "$work/bin/worldbisect" explain --store "$store" --format sarif --fail-on proven "$analysis_id" > "$work/fail-on.sarif" 2> "$work/fail-on.err"; then
+"$binary" explain --store "$store" --format junit --report-url https://ci.example/report --bundle-url https://ci.example/bundle "$analysis_id" > "$work/analysis.junit.xml"
+"$binary" explain --store "$store" --format sarif --report-url https://ci.example/report --bundle-url https://ci.example/bundle "$analysis_id" > "$work/analysis.sarif"
+if "$binary" explain --store "$store" --format sarif --fail-on proven "$analysis_id" > "$work/fail-on.sarif" 2> "$work/fail-on.err"; then
   echo "--fail-on proven did not fail for PROVEN analysis" >&2
   exit 1
 fi
@@ -89,13 +102,13 @@ assert sarif["version"] == "2.1.0", sarif
 assert sarif["runs"][0]["results"][0]["ruleId"] == "worldbisect/PROVEN", sarif
 assert sarif["runs"][0]["results"][0]["properties"]["report_url"] == "https://ci.example/report", sarif
 PY
-"$work/bin/worldbisect" verify "$work/result.wbc" > "$work/verify.json"
+"$binary" verify "$work/result.wbc" > "$work/verify.json"
 python3 - "$work/verify.json" <<'PY'
 import json, sys
 value=json.load(open(sys.argv[1]))
 assert value["valid"] is True, value
 PY
-"$work/bin/worldbisect" audit --store "$store" > "$work/audit.json"
+"$binary" audit --store "$store" > "$work/audit.json"
 python3 - "$work/audit.json" <<'PY'
 import json, sys
 value=json.load(open(sys.argv[1]))
@@ -111,7 +124,7 @@ if [[ -n "${WORLDBISECT_E2E_ARTIFACT_DIR:-}" ]]; then
 fi
 
 config="$work/config.json"
-init_output=$("$work/bin/worldbisectd" init --config "$config" --data-dir "$work/daemon-data" --listen 127.0.0.1:0)
+init_output=$("$daemon_binary" init --config "$config" --data-dir "$work/daemon-data" --listen 127.0.0.1:0)
 token=$(printf '%s\n' "$init_output" | sed -n 's/^Initial bearer token (shown once): //p')
 test -n "$token"
 if grep -q "$token" "$config"; then
