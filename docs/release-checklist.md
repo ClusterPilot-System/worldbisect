@@ -24,6 +24,8 @@
 
 - [ ] AMD64 and ARM64 binaries are correct ELF architectures.
 - [ ] Debian packages contain `LICENSE`, `NOTICE`, and Debian copyright metadata.
+- [ ] Release tarballs contain the bundled installer and its referenced legal files.
+- [ ] RPM spec `Version` matches `VERSION`.
 - [ ] Installed files have safe permissions.
 - [ ] Source archives contain no absolute or traversal paths.
 - [ ] `SHA256SUMS` validates all artifacts.

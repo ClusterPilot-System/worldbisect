@@ -23,6 +23,12 @@ import json, pathlib
 for path in [pathlib.Path('configs/worldbisect.example.json')]:
     json.loads(path.read_text())
 PY
+version=$(tr -d '\n' < VERSION)
+rpm_version=$(awk '$1 == "Version:" { print $2; exit }' packaging/rpm/worldbisect.spec)
+if [[ "$rpm_version" != "$version" ]]; then
+  echo "RPM spec version $rpm_version does not match VERSION $version" >&2
+  exit 1
+fi
 printf '[7/12] shell syntax\n'
 for script in scripts/*.sh examples/*/*.sh; do bash -n "$script"; done
 printf '[8/12] package\n'

@@ -55,10 +55,14 @@ Read [`docs/limitations.md`](docs/limitations.md) before relying on a causal res
 
 ### Release tarball
 
-Download the tarball and `SHA256SUMS` from the GitHub release, verify the checksum, then install:
+Download the tarball and `SHA256SUMS` from the GitHub release, verify the checksum,
+extract the verified archive, and run its bundled installer:
 
 ```bash
-sha256sum -c SHA256SUMS
+archive=worldbisect_1.1.1_linux_amd64.tar.gz
+grep -F "  $archive" SHA256SUMS | sha256sum -c -
+tar -xzf "$archive"
+cd "${archive%.tar.gz}"
 sudo ./scripts/install.sh
 ```
 

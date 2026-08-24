@@ -67,6 +67,23 @@ root="$work/$root_name"
 binary="$root/bin/worldbisect"
 daemon_binary="$root/bin/worldbisectd"
 [[ -x "$binary" && -x "$daemon_binary" ]] || { echo 'release archive is missing executable binaries' >&2; exit 1; }
+installer="$root/scripts/install.sh"
+[[ -x "$installer" ]] || { echo 'release archive is missing scripts/install.sh' >&2; exit 1; }
+[[ -f "$root/NOTICE" ]] || { echo 'release archive is missing NOTICE' >&2; exit 1; }
+
+install_root="$work/install-root"
+DESTDIR="$install_root" PREFIX=/usr/local "$installer"
+for installed in \
+  "$install_root/usr/local/bin/worldbisect" \
+  "$install_root/usr/local/sbin/worldbisectd" \
+  "$install_root/usr/local/share/man/man1/worldbisect.1" \
+  "$install_root/usr/local/share/man/man5/worldbisect.conf.5" \
+  "$install_root/usr/local/share/man/man8/worldbisectd.8" \
+  "$install_root/usr/local/share/doc/worldbisect/LICENSE" \
+  "$install_root/usr/local/share/doc/worldbisect/NOTICE"; do
+  [[ -e "$installed" ]] || { echo "release installer did not install $installed" >&2; exit 1; }
+done
+
 if [[ -n "$version" ]]; then
   version_output=$("$binary" version)
   grep -Fq " $version (" <<<"$version_output" || { echo "unexpected binary version: $version_output" >&2; exit 1; }

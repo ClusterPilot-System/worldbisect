@@ -26,7 +26,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Changed
 
-- The v1.1.1 Action release supplies the verified v1.1.0 Linux archive digest
+- The v1.1.1 Action release supplies the verified v1.1.1 Linux archive digest
   by default; custom releases and repositories still require an explicit
   `sha256`.
 - GitHub Action runs publish the diagnosis, report link, and diagnostic artifact
