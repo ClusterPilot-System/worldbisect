@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches: [main]
+    paths: [VERSION]
     tags:
       # Major compatibility tags such as v1 deliberately remain movable and
       # must not create a GitHub Release. Only full SemVer tags are releases.
@@ -14,9 +16,7 @@ on:
         type: string
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -54,6 +54,10 @@ jobs:
 
   release:
     needs: arm64-runtime
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -72,16 +76,24 @@ jobs:
       - name: Resolve tag
         id: tag
         shell: bash
+        env:
+          RELEASE_INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
             tag="${GITHUB_REF_NAME}"
+          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
+            tag="v$(cat VERSION)"
           else
-            tag="${{ inputs.tag }}"
+            tag="$RELEASE_INPUT_TAG"
             git rev-parse "refs/tags/${tag}" >/dev/null
           fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           version="${tag#v}"
           test "$(cat VERSION)" = "${version}"
+          if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$(git rev-parse HEAD)"
+          fi
           printf 'tag=%s\nversion=%s\n' "$tag" "$version" >> "$GITHUB_OUTPUT"
       - name: Validate
         env:
@@ -106,6 +118,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A reviewed VERSION change on main publishes that exact commit.
+          # Existing tags are verified above and are never moved or replaced.
+          if ! git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
           notes="$(mktemp)"
           awk -v v="${VERSION}" '
             $0 == "## [" v "]" {found=1; next}
