@@ -1,5 +1,18 @@
 # Release checklist
 
+A reviewed pull request that changes `VERSION` on `main` starts the release
+pipeline automatically. Update the RPM version and changelog in the same PR.
+The pipeline validates AMD64 and ARM64, builds and attests the artifacts, then
+creates the exact version tag and publishes a draft-first release. It never
+moves an existing version tag. Existing tag pushes and manual release of an
+existing tag remain supported.
+
+After publication, verify the published archive checksums and update the
+Action installer digest table and defaults in a follow-up PR. Test those
+downloaded engines on both architectures before merging. Pin consumers to
+the reviewed Action commit containing those defaults; a binary release tag
+can precede that follow-up Action update.
+
 ## Source
 
 - [ ] `VERSION` matches the semantic release tag.

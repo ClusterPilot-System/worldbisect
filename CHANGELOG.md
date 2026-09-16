@@ -6,6 +6,30 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [1.2.0]
+
+### Added
+
+- Opt-in CI companion Action retains explicitly selected successful inputs,
+  finds compatible trusted baselines, reproduces both outcomes, and preserves
+  the original check failure while testing candidate causes.
+- Short workflow summaries and optional updatable PR comments explain the
+  finding, executed tests, confidence, and next step.
+- Bounded retention and input sizes, credential rejection, clean environments,
+  fork isolation, and explicit non-reproducible outcomes.
+- Real-tool integration checks cover Node.js, GCC and the pinned ItsDangerous
+  upstream suite (297 tests), plus automatic cross-run artifact verification.
+- Reviewed VERSION changes on main run the gated, attested release pipeline.
+
+### Fixed
+
+- Native Linux AMD64 tracing keeps ptrace operations on their owning OS
+  thread, scopes child waits to the isolated process group, drains command
+  output, and bounds cancellation of nested processes. Commands that change
+  process groups use documented portable fallback. This fixes a compiler-check
+  hang and concurrent command exit-status theft.
+- Release archives include the standalone installer.
+
 ### Community
 
 - Added contributor onboarding with two concrete `good first issue` tickets,

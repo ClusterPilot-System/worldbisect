@@ -72,7 +72,7 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 		default:
 		}
 		var waitStatus syscall.WaitStatus
-		waited, err := syscall.Wait4(-1, &waitStatus, syscall.WALL|syscall.WNOTHREAD, nil)
+		waited, err := syscall.Wait4(-pid, &waitStatus, syscall.WALL|syscall.WNOTHREAD, nil)
 		if err != nil {
 			if errors.Is(err, syscall.ECHILD) {
 				break
@@ -95,9 +95,17 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 				// it would leave the child stopped forever.
 				signal = 0
 			} else if signal == syscall.SIGTRAP|0x80 {
-				if !inSyscall[waited] {
-					var registers syscall.PtraceRegs
-					if err := syscall.PtraceGetRegs(waited, &registers); err == nil {
+				var registers syscall.PtraceRegs
+				if err := syscall.PtraceGetRegs(waited, &registers); err == nil {
+					// Group-scoped waits cannot steal an unrelated command's
+					// exit status, even if it started earlier on this OS thread.
+					// Stop before a tracee leaves that group; the caller then
+					// reruns with portable capture and reports the boundary.
+					if registers.Orig_rax == syscall.SYS_SETSID || registers.Orig_rax == syscall.SYS_SETPGID {
+						killAndReapTracees(pid, processes)
+						return paths, nil, errors.New("native tracing cannot follow process-group changes")
+					}
+					if !inSyscall[waited] {
 						paths = append(paths, syscallPaths(waited, registers)...)
 					}
 				}
@@ -144,7 +152,7 @@ func killAndReapTracees(pid int, processes map[int]bool) {
 	deadline := time.Now().Add(time.Second)
 	for len(processes) > 0 && time.Now().Before(deadline) {
 		var status syscall.WaitStatus
-		waited, err := syscall.Wait4(-1, &status, syscall.WALL|syscall.WNOTHREAD|syscall.WNOHANG, nil)
+		waited, err := syscall.Wait4(-pid, &status, syscall.WALL|syscall.WNOTHREAD|syscall.WNOHANG, nil)
 		if waited > 0 {
 			delete(processes, waited)
 			continue

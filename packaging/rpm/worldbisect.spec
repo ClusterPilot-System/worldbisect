@@ -1,5 +1,5 @@
 Name:           worldbisect
-Version:        1.1.1
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Git bisect for runtime reality
 License:        Apache-2.0

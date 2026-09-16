@@ -25,11 +25,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Introduce a controlled regression
-        if: github.event_name == 'workflow_dispatch' && inputs.simulate_failure
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_failure == 'true'
         run: printf 'feature=disabled\n' > examples/ci-baseline/config.txt
       - name: Run and diagnose
         id: diagnose
-        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_failure }}
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_failure == 'true' }}
         uses: ./actions/ci
         with:
           command: '["./examples/ci-baseline/check.sh"]'
@@ -39,12 +39,12 @@ jobs:
           baseline-key: configuration-demo
           comment-pr: 'true'
       - name: Verify successful execution
-        if: github.event_name != 'workflow_dispatch' || !inputs.simulate_failure
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.simulate_failure != 'true'
         env:
           STATUS: ${{ steps.diagnose.outputs.status }}
         run: test "$STATUS" = PASSED
       - name: Verify real cross-run diagnosis
-        if: github.event_name == 'workflow_dispatch' && inputs.simulate_failure
+        if: always() && github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_failure == 'true'
         env:
           STATUS: ${{ steps.diagnose.outputs.status }}
           OUTCOME: ${{ steps.diagnose.outcome }}
