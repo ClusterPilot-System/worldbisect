@@ -20,6 +20,9 @@ inputs:
   diagnostic-timeout-seconds:
     description: Total compare budget in seconds (1-900); the command failure is preserved on timeout
     default: '180'
+  comment-pr:
+    description: Update one concise bot comment per check on same-repository pull requests; requires pull-requests write
+    default: 'false'
   version:
     description: Verified WorldBisect binary version
     default: '1.1.1'
@@ -152,6 +155,23 @@ runs:
         path: ${{ steps.prepare.outputs.root }}/artifacts
         retention-days: ${{ steps.prepare.outputs.retention }}
         if-no-files-found: error
+
+    - name: Update concise pull request diagnosis
+      if: >-
+        always() && inputs.comment-pr == 'true' && steps.finish.outcome == 'success' &&
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      env:
+        SUMMARY_PATH: ${{ steps.finish.outputs.summary-path }}
+        COMMENT_KEY: ${{ steps.finish.outputs.comment-key }}
+        ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
+        COMMENT_SCRIPT: ${{ github.action_path }}/comment.cjs
+      with:
+        script: |
+          const publishComment = require(process.env.COMMENT_SCRIPT);
+          await publishComment({github, context, core});
 
     - name: Remove local raw inputs and captures
       if: always() && steps.prepare.outputs.root != ''

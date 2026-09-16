@@ -44,3 +44,16 @@ produce specific outcomes instead of causal claims. External pilot feedback is
 needed before promising measured savings. Rollback consists of removing the
 companion Action from workflows and deleting its retained artifacts; the existing
 explicit-workspace integration remains available.
+
+
+## Completion: PR publishing and cross-run verification
+
+An optional comment publisher writes a compact, escaped diagnosis to same-repo
+pull requests using the workflow token. It only edits its own GitHub Actions bot
+comment and rechecks the open PR head before publishing. Forks and
+pull_request_target remain excluded. The underlying check's failure is preserved.
+
+A no-checkout workflow_run job dispatches the existing regression demo only after
+a verified successful main push demo completes. It never executes an artifact or
+PR code with its actions:write token. This automates the actual prior-run download
+without broadening which runs can provide input baselines.

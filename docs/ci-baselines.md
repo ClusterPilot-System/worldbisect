@@ -105,9 +105,16 @@ Outputs: `status`, `analysis-id`, `baseline-run-id`, `artifact-url`.
 Every completed run publishes a job summary and a small `outcome.json`.
 Completed comparisons additionally publish Markdown, JSON, JUnit, SARIF and a
 signed certificate. Reports omit raw input contents and command output.
-They are available as artifacts; this companion Action needs no PR-comment or
-Code Scanning write permissions. The existing root Action retains those optional
-team-reporting features.
+The workflow summary answers finding, executed checks, confidence and next action
+without embedding the long technical report. Full reports remain in artifacts.
+
+To publish the same compact result directly on same-repository PRs, set
+`comment-pr: 'true'` and grant `pull-requests: write` to that job. The default is
+`false`. One GitHub Actions bot comment is updated per check/matrix key. Closed
+PRs, stale heads and fork PRs cannot publish; permission failures remain visible
+without replacing the check's original outcome. Do not grant extra permissions
+to untrusted code or use `pull_request_target`. Code Scanning publishing remains
+available through the original root Action.
 
 `timeout-seconds` defaults to 60 (maximum 600) for each command execution.
 `diagnostic-timeout-seconds` defaults to 180 (maximum 900) for the comparison;
@@ -123,7 +130,8 @@ be able to download them. Select synthetic/public configuration and safe scripts
 never list credentials, customer data, secret-bearing configs or proprietary
 binaries you are not authorized to retain. Do not put secrets in command arguments.
 
-Common credential paths, private-key material, symlinks, hardlinks, traversal,
+Common credential paths, private-key material, recognizable GitHub/AWS/Slack
+credential formats, symlinks, hardlinks, traversal,
 special files, oversized snapshots and digest mismatches are rejected. These
 checks are not a general secret scanner: a password inside `app.conf` can still
 be uploaded if you select that file. Baseline artifacts and redacted diagnosis
@@ -154,7 +162,13 @@ the previous successful input artifact and expects a `PROVEN` diagnosis. The
 check itself remains failed; the demo's final assertion verifies that this expected
 failure was correctly diagnosed. It never promotes the intentionally bad inputs.
 
-The local equivalent and security/selection tests run with:
+A separate `workflow_run` verifier starts this manual regression automatically
+only after a successful default-branch push demo completes. Its privileged job
+checks the source workflow path, never checks out repository code, and can only
+dispatch the named demo. PR, fork and manual-run completions cannot trigger it.
+This exercises a real download from a previous run, not a same-run cache.
+
+The local equivalent and security/selection/comment tests run with:
 
 ```bash
 ./scripts/ci-baseline-test.sh

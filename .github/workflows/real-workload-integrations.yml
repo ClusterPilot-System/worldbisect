@@ -1,0 +1,48 @@
+name: Real workload integrations
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  integrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout WorldBisect
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Checkout pinned upstream test suite
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: pallets/itsdangerous
+          ref: 096c8d42545d3b68ea21a4f890fb2b2d8979c0bd # 2.2.0
+          path: build/upstream-itsdangerous
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Prepare isolated test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/worldbisect-integration-env"
+          "$RUNNER_TEMP/worldbisect-integration-env/bin/pip" install --require-hashes -r tests/integrations/requirements.txt
+          go build -o build/worldbisect ./cmd/worldbisect
+      - name: Diagnose Node, C and upstream Python regressions
+        run: |
+          python3 tests/integrations/real_workloads.py \
+            --binary "$GITHUB_WORKSPACE/build/worldbisect" \
+            --upstream "$GITHUB_WORKSPACE/build/upstream-itsdangerous" \
+            --python "$RUNNER_TEMP/worldbisect-integration-env/bin/python" \
+            --report build/integration-results.json
+      - name: Publish integration evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: real-workload-integration-results
+          path: build/integration-results.json
+          retention-days: 14
+          if-no-files-found: error

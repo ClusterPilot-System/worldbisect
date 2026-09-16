@@ -1,0 +1,35 @@
+name: Verify completed CI baselines
+on:
+  workflow_run:
+    workflows: [CI baseline demo]
+    types: [completed]
+permissions:
+  actions: write
+jobs:
+  verify:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # No checkout, artifact execution or untrusted script interpolation in this privileged job.
+      - name: Start regression only after the trusted baseline run completed
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const source = context.payload.workflow_run;
+            const workflow = (await github.rest.actions.getWorkflow({
+              owner, repo, workflow_id: source.workflow_id,
+            })).data;
+            if (workflow.path !== '.github/workflows/ci-baseline-demo.yml') {
+              throw new Error('Unexpected source workflow path');
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              owner, repo, workflow_id: 'ci-baseline-demo.yml',
+              ref: context.payload.repository.default_branch,
+              inputs: {simulate_failure: 'true'},
+            });

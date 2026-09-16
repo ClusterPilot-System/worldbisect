@@ -14,6 +14,10 @@ permissions:
   actions: read
 jobs:
   demo:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -33,6 +37,7 @@ jobs:
             examples/ci-baseline/check.sh
             examples/ci-baseline/config.txt
           baseline-key: configuration-demo
+          comment-pr: 'true'
       - name: Verify successful execution
         if: github.event_name != 'workflow_dispatch' || !inputs.simulate_failure
         env:

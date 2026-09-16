@@ -86,6 +86,34 @@ class SnapshotTests(unittest.TestCase):
             b.load(path)
 
 
+class SummaryTests(unittest.TestCase):
+    def test_four_answers_without_long_report(self):
+        state = {'status': 'PROVEN'}
+        result = {'cause': [{'description': 'workspace file "config.txt" differs'}],
+                  'proof': {'forward_verified': True, 'reverse_verified': True},
+                  'evidence': {'experiment_count': 12}, 'next_steps': ['Restore known-good config.']}
+        summary = '\n'.join(b.summary_lines(state, result))
+        for field in ['Finding', 'Tested', 'Confidence', 'Next step']:
+            self.assertIn('**' + field + ':**', summary)
+        self.assertIn('12 experiments', summary)
+        self.assertIn('repair: passed; reverse reproduction: passed', summary)
+        self.assertLess(len(summary), 1500)
+
+    def test_untrusted_report_text_cannot_inject_links_or_mentions(self):
+        text = b.safe_text('[click](https://evil.invalid) <script> @team\n# header')
+        self.assertNotIn('[click](', text)
+        self.assertNotIn('<script>', text)
+        self.assertNotIn('@team', text)
+        self.assertNotIn('\n', text)
+
+    def test_recognizable_credentials_fail_closed(self):
+        for value in [b'gh' + b'p_' + b'A' * 36, b'AK' + b'IA' + b'Z' * 16,
+                      b'github' + b'_pat_' + b'A' * 80, b'xox' + b'b-' + b'a' * 24]:
+            with self.assertRaises(ValueError):
+                b.reject_credentials(value)
+        b.reject_credentials(b'feature=enabled')
+
+
 @unittest.skipUnless(os.environ.get('WORLDBISECT_TEST_BINARY'), 'set WORLDBISECT_TEST_BINARY for real engine E2E')
 class RealEngineTests(unittest.TestCase):
     def setUp(self):
