@@ -73,7 +73,7 @@ source_tmp=$(mktemp -d)
 source_stage="$source_tmp/worldbisect-$VERSION"
 mkdir -p "$source_stage"
 tar --exclude-vcs --exclude='./dist' --exclude='dist' --exclude='./bin' --exclude='bin' \
-    --exclude='./.coverage' --exclude='.coverage' --exclude='./worldbisect' --exclude='./worldbisectd' \
+    --exclude='__pycache__' --exclude='*.pyc' --exclude='./.coverage' --exclude='.coverage' --exclude='./worldbisect' --exclude='./worldbisectd' \
     -C "$ROOT" -cf - . | tar -C "$source_stage" -xf -
 archive_tree "$source_stage" "$DIST/worldbisect-${VERSION}-source.tar.gz"
 rm -rf "$source_tmp"

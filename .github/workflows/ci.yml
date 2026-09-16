@@ -144,6 +144,8 @@ jobs:
         run: |
           go test ./... -count=1
           go test -race ./... -count=1
+      - name: CI baseline contracts on ARM64
+        run: ./scripts/ci-baseline-test.sh
       - name: End-to-end on native ARM64
         env:
           WORLDBISECT_E2E_RACE: "1"

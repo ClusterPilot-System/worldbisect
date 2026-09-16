@@ -11,6 +11,7 @@ is public; it is not a release promise or a commitment to a calendar date.
 | --- | --- | --- |
 | Shipped | deterministic capture, bidirectional proof states, signed certificates, redacted handoff, and Linux release packaging | executable contracts, focused tests, and release evidence remain green |
 | Shipped | GitHub Action with Markdown/JSON/JUnit/SARIF outputs, immutable archive verification, Step Summary, and team-oriented PR reporting | Action inputs/outputs are documented, reports remain secret-safe, and fork permissions fail closed |
+| Available on main | opt-in CI input baselines and automatic bounded failure diagnosis | trusted baseline selection, real-engine regression tests, clear outcomes and documented raw-artifact boundaries; external pilot validation still pending |
 | Current maintenance | contributor onboarding, Discussions, monthly notes, public issue triage, and consented anonymized case-study intake | community changes stay documentation-/governance-scoped and do not broaden product support |
 | Next bounded work | correctness, security, Linux compatibility, performance, observability, testing, packaging, and documentation maintenance | additive change, regression coverage, compatibility analysis, and updated operator guidance |
 

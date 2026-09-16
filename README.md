@@ -140,6 +140,24 @@ also includes a proof explanation, evidence boundaries, and technical IDs for
 support. Use `--format json` when a machine needs the stable structured
 contract instead of the human-readable report.
 
+## Automatic CI baselines
+
+Want the comparison inputs to come from a previous successful CI run?
+The opt-in [`actions/ci` companion Action](docs/ci-baselines.md) saves explicitly
+selected safe files on successful default-branch pushes. On a later failure it
+replays the old and current inputs, then tests supported differences with the
+existing engine. The original failed check remains failed.
+
+Start with a small reproducible Linux check. Raw baseline files are retained in
+GitHub Actions artifacts, so select only inputs you are authorized to upload.
+Missing baselines and non-reproducible executions produce clear next steps.
+Historical host state, packages, services and secrets are not restored.
+
+See the [setup and security guide](docs/ci-baselines.md) and the executable
+[CI baseline demo](.github/workflows/ci-baseline-demo.yml). The companion path is
+available on `main`; pin a reviewed commit containing it. Existing `v1` and
+`v1.1.1` tags retain the original explicit-workspace Action below.
+
 ## Try the GitHub Action in 5 minutes
 
 The fastest way to see the causal proof is the public

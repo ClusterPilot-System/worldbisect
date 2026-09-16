@@ -34,6 +34,7 @@ Required tools:
 - Go version declared by `go.mod`
 - Bash
 - Python 3
+- Node.js 20 or newer (CI Action contract tests)
 - standard packaging tools for release packaging
 
 Run the complete local validation:

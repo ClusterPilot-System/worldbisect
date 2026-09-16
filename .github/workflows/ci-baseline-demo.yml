@@ -1,0 +1,74 @@
+name: CI baseline demo
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: Change the synthetic configuration and diagnose against the last successful main run
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Introduce a controlled regression
+        if: github.event_name == 'workflow_dispatch' && inputs.simulate_failure
+        run: printf 'feature=disabled\n' > examples/ci-baseline/config.txt
+      - name: Run and diagnose
+        id: diagnose
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_failure }}
+        uses: ./actions/ci
+        with:
+          command: '["./examples/ci-baseline/check.sh"]'
+          files: |
+            examples/ci-baseline/check.sh
+            examples/ci-baseline/config.txt
+          baseline-key: configuration-demo
+      - name: Verify successful execution
+        if: github.event_name != 'workflow_dispatch' || !inputs.simulate_failure
+        env:
+          STATUS: ${{ steps.diagnose.outputs.status }}
+        run: test "$STATUS" = PASSED
+      - name: Verify real cross-run diagnosis
+        if: github.event_name == 'workflow_dispatch' && inputs.simulate_failure
+        env:
+          STATUS: ${{ steps.diagnose.outputs.status }}
+          OUTCOME: ${{ steps.diagnose.outcome }}
+          BASELINE: ${{ steps.diagnose.outputs.baseline-run-id }}
+        run: |
+          test "$STATUS" = PROVEN
+          test "$OUTCOME" = failure
+          test -n "$BASELINE"
+
+  release-engine-contracts:
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, ubuntu-22.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test companion contracts against the published engine
+        shell: bash
+        env:
+          INPUT_VERSION: '1.1.1'
+          INPUT_REPOSITORY: ClusterPilot-System/worldbisect
+        run: |
+          set -Eeuo pipefail
+          WORK_DIR=$(mktemp -d)
+          trap 'rm -rf "$WORK_DIR"' EXIT
+          fail() { echo "worldbisect installer: $*" >&2; exit 1; }
+          source scripts/github-install.sh
+          PYTHONDONTWRITEBYTECODE=1 WORLDBISECT_TEST_BINARY="$binary" \
+            python3 -m unittest discover -s actions/ci -p 'test_*.py' -v

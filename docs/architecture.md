@@ -41,6 +41,14 @@ Bidirectional proof kernel -> report -> signed certificate / bundle
 
 The CLI is the primary interface. It captures commands, compares sessions, explains analyses, previews and explicitly confirms support handoffs, exports and imports bundles, verifies certificates, validates the audit chain, runs host diagnostics, and can host the API.
 
+### CI companion Action
+
+The opt-in `actions/ci` orchestration stores explicitly selected known-good file
+inputs in trusted GitHub Actions artifacts and replays them on later failures.
+It reuses the existing CLI and proof engine. Raw baselines are separate from
+redacted diagnostics; see [ADR 0006](adr/0006-opt-in-ci-baselines.md) and the
+[operator guide](ci-baselines.md) for selection, retention and trust boundaries.
+
 ### Daemon
 
 `worldbisectd` initializes a secure configuration, runs the HTTP server, and executes a bounded persistent job queue. One daemon is authoritative for one data directory.

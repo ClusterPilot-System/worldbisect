@@ -1,0 +1,179 @@
+name: WorldBisect CI
+description: Run a bounded Linux check and diagnose failures against trusted successful CI inputs
+author: ClusterPilot System
+inputs:
+  command:
+    description: 'JSON argument array, for example ["./check.sh"]. Runs only in the selected input files.'
+    required: true
+  files:
+    description: Explicit relative regular file paths, one per line. Contents are retained unredacted; select only safe inputs.
+    required: true
+  baseline-key:
+    description: Stable unique identifier for this check and matrix variant within the job
+    default: default
+  retention-days:
+    description: Maximum baseline age and artifact retention (1-30 days)
+    default: '7'
+  timeout-seconds:
+    description: Timeout for each command execution (1-600 seconds)
+    default: '60'
+  diagnostic-timeout-seconds:
+    description: Total compare budget in seconds (1-900); the command failure is preserved on timeout
+    default: '180'
+  version:
+    description: Verified WorldBisect binary version
+    default: '1.1.1'
+  sha256:
+    description: Required digest for versions without a built-in verified digest
+    default: ''
+outputs:
+  status:
+    description: CI outcome or bounded causal proof status
+    value: ${{ steps.finish.outputs.status }}
+  analysis-id:
+    description: Analysis identifier when a comparison completed
+    value: ${{ steps.finish.outputs.analysis-id }}
+  baseline-run-id:
+    description: Selected trusted baseline run, if available
+    value: ${{ steps.select.outputs.run-id }}
+  artifact-url:
+    description: Download URL for the diagnosis, excluding raw inputs
+    value: ${{ steps.upload-report.outputs.artifact-url }}
+runs:
+  using: composite
+  steps:
+    - name: Install verified WorldBisect binary
+      id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_SHA256: ${{ inputs.sha256 }}
+        INPUT_REPOSITORY: ClusterPilot-System/worldbisect
+      run: |
+        set -Eeuo pipefail
+        [[ "$RUNNER_OS" == Linux ]] || { echo 'Linux runner required' >&2; exit 1; }
+        [[ "$GITHUB_EVENT_NAME" != pull_request_target ]] || { echo 'pull_request_target is not supported' >&2; exit 1; }
+        WORK_DIR=$(mktemp -d "$RUNNER_TEMP/worldbisect-install-XXXXXX")
+        fail() { echo "worldbisect installer: $*" >&2; exit 1; }
+        source "$GITHUB_ACTION_PATH/../../scripts/github-install.sh"
+        printf 'binary=%s\n' "$binary" >> "$GITHUB_OUTPUT"
+        printf 'work=%s\n' "$WORK_DIR" >> "$GITHUB_OUTPUT"
+
+    - name: Capture selected inputs and run the check
+      id: prepare
+      shell: bash
+      env:
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_FILES: ${{ inputs.files }}
+        INPUT_BASELINE_KEY: ${{ inputs.baseline-key }}
+        INPUT_RETENTION: ${{ inputs.retention-days }}
+        INPUT_TIMEOUT: ${{ inputs.timeout-seconds }}
+        INPUT_DIAGNOSTIC_TIMEOUT: ${{ inputs.diagnostic-timeout-seconds }}
+        WORLDBISECT_BINARY: ${{ steps.install.outputs.binary }}
+      run: python3 "$GITHUB_ACTION_PATH/baseline.py" prepare
+
+    - name: Find a compatible successful default-branch run
+      id: select
+      if: steps.prepare.outputs.status == 'BASELINE_MISSING'
+      continue-on-error: true
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      env:
+        ARTIFACT_NAME: ${{ steps.prepare.outputs.artifact-name }}
+        RETENTION: ${{ steps.prepare.outputs.retention }}
+        BASELINE_SELECTOR: ${{ github.action_path }}/select-baseline.cjs
+      with:
+        script: |
+          const selectBaseline = require(process.env.BASELINE_SELECTOR);
+          await selectBaseline({github, context, core});
+
+    - name: Download selected baseline inputs
+      id: download
+      if: steps.select.outputs.run-id != ''
+      continue-on-error: true
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      with:
+        artifact-ids: ${{ steps.select.outputs.artifact-id }}
+        merge-multiple: true
+        path: ${{ steps.prepare.outputs.root }}/download
+        run-id: ${{ steps.select.outputs.run-id }}
+        github-token: ${{ github.token }}
+
+    - name: Diagnose the original failure
+      id: diagnose
+      if: always() && steps.prepare.outcome == 'success' && steps.prepare.outputs.command-passed == 'false'
+      continue-on-error: true
+      shell: bash
+      env:
+        CI_ROOT: ${{ steps.prepare.outputs.root }}
+        BASELINE_LOOKUP: ${{ steps.select.outcome }}
+        BASELINE_DOWNLOAD: ${{ steps.download.outcome }}
+        BASELINE_RUN_ID: ${{ steps.select.outputs.run-id }}
+        BASELINE_SHA: ${{ steps.select.outputs.sha }}
+      run: python3 "$GITHUB_ACTION_PATH/baseline.py" diagnose
+
+    - name: Prepare trusted baseline artifact
+      if: >-
+        success() && steps.prepare.outputs.command-passed == 'true' &&
+        github.event_name == 'push' &&
+        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      shell: bash
+      env:
+        CI_ROOT: ${{ steps.prepare.outputs.root }}
+      run: |
+        mkdir "$CI_ROOT/publish"
+        cp "$CI_ROOT/inputs.json" "$CI_ROOT/publish/baseline.json"
+
+    - name: Retain successful selected inputs
+      if: >-
+        success() && steps.prepare.outputs.command-passed == 'true' &&
+        github.event_name == 'push' &&
+        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ steps.prepare.outputs.artifact-name }}
+        path: ${{ steps.prepare.outputs.root }}/publish/baseline.json
+        retention-days: ${{ steps.prepare.outputs.retention }}
+        if-no-files-found: error
+
+    - name: Explain result and next steps
+      id: finish
+      if: always() && steps.prepare.outputs.root != ''
+      shell: bash
+      env:
+        CI_ROOT: ${{ steps.prepare.outputs.root }}
+      run: python3 "$GITHUB_ACTION_PATH/baseline.py" finish
+
+    - name: Upload diagnosis without raw inputs
+      id: upload-report
+      if: always() && steps.finish.outcome == 'success'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: diagnosis-${{ steps.prepare.outputs.artifact-name }}
+        path: ${{ steps.prepare.outputs.root }}/artifacts
+        retention-days: ${{ steps.prepare.outputs.retention }}
+        if-no-files-found: error
+
+    - name: Remove local raw inputs and captures
+      if: always() && steps.prepare.outputs.root != ''
+      shell: bash
+      env:
+        CI_ROOT: ${{ steps.prepare.outputs.root }}
+      run: python3 "$GITHUB_ACTION_PATH/baseline.py" cleanup
+
+    - name: Remove downloaded installer files
+      if: always() && steps.install.outputs.work != ''
+      shell: bash
+      env:
+        INSTALL_DIR: ${{ steps.install.outputs.work }}
+      run: rm -rf -- "$INSTALL_DIR"
+
+    - name: Preserve original command failure
+      if: always()
+      shell: bash
+      env:
+        COMMAND_EXIT: ${{ steps.finish.outputs.command-exit }}
+      run: |
+        if [[ "$COMMAND_EXIT" != 0 ]]; then
+          echo 'The original check failed or could not complete. See the WorldBisect job summary.' >&2
+          exit 1
+        fi
