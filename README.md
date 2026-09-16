@@ -11,7 +11,8 @@ in isolated copies, and reruns the command to test which differences explain
 the failure. Its CI Action can keep the working inputs for you.
 
 **Start here:** [CI setup](docs/ci-baselines.md) · [Try the demo](docs/quickstart-demo.md) ·
-[What “PROVEN” means](docs/proof-boundary.md) · [Integration evidence](docs/integration-validation.md)
+[What “PROVEN” means](docs/proof-boundary.md) · [Integration evidence](docs/integration-validation.md) ·
+[Release 1.2.0](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.0)
 
 ## A useful answer to a failed check
 
@@ -76,6 +77,7 @@ production-incident debugger. Read the [limitations](docs/limitations.md).
 
 - Run the [public CI demo](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/ci-baseline-demo.yml).
 - Read the [Node.js, C and upstream Python integration checks](docs/integration-validation.md).
+- Tell us [which CI check you would try first](https://github.com/ClusterPilot-System/worldbisect/issues/58).
 - Ask a question in [Discussions](https://github.com/ClusterPilot-System/worldbisect/discussions).
 - Share a [sanitized user report](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=user-report.yml).
 - Pick a [good first issue](https://github.com/ClusterPilot-System/worldbisect/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22).
@@ -109,7 +111,7 @@ The 1.0 causal contract is intentionally bounded. It can intervene on non-secret
 
 ## Status
 
-WorldBisect 1.0 is released as a stable, maintenance-oriented package for Linux. It is not an automatic code repair agent and does not claim universal causal completeness.
+WorldBisect 1.2.0 is released as a stable, maintenance-oriented package for Linux. It is not an automatic code repair agent and does not claim universal causal completeness.
 
 Supported release platforms:
 
@@ -127,7 +129,7 @@ Download the tarball and `SHA256SUMS` from the GitHub release, verify the checks
 extract the verified archive, and run its bundled installer:
 
 ```bash
-archive=worldbisect_1.1.1_linux_amd64.tar.gz
+archive=worldbisect_1.2.0_linux_amd64.tar.gz
 grep -F "  $archive" SHA256SUMS | sha256sum -c -
 tar -xzf "$archive"
 cd "${archive%.tar.gz}"
@@ -137,7 +139,7 @@ sudo ./scripts/install.sh
 ### Debian package
 
 ```bash
-sudo dpkg -i worldbisect_1.1.1_linux_amd64.deb
+sudo dpkg -i worldbisect_1.2.0_linux_amd64.deb
 ```
 
 ### From source
@@ -241,48 +243,44 @@ and pin the Action to a reviewed commit or immutable release:
 ```yaml
 - name: Diagnose workspace difference
   id: worldbisect
-  uses: ClusterPilot-System/worldbisect@v1
+  uses: ClusterPilot-System/worldbisect@main # pin a reviewed commit
   with:
     command: ./check.sh
     good-workspace: demo/good
     bad-workspace: demo/bad
-    version: 1.1.1
+    version: 1.2.0
     fail-on: proven
 ```
 
-For the official `ClusterPilot-System/worldbisect` `v1.1.1` release, the
+For the official `ClusterPilot-System/worldbisect` `v1.2.0` release, the
 Action selects and verifies the correct built-in digest for Linux AMD64 or
 ARM64. You can still provide an explicit digest when using a custom release or
 repository:
 
 ```yaml
-    # Optional explicit Linux AMD64 digest for v1.1.1:
-    # sha256: 5725bd04acdd9bedefddf899fd1bae19f914dd2d8db3d60eae4156d0324202c6
+    # Optional explicit Linux AMD64 digest for v1.2.0:
+    # sha256: 632370e3d3b02b31912c252d6d24d01a4f788f6f350cf8c84876f44d51c0615e
 ```
 
 ### Action trust pins
 
-`v1` is the maintained compatibility tag for the latest compatible 1.x Action
-release. It is intentionally movable and initially points to the reviewed
-`v1.1.1` release commit. Use it when receiving compatible updates matters more
-than pinning a single revision:
-
-```yaml
-uses: ClusterPilot-System/worldbisect@v1
-```
+The historical `v1` compatibility tag still points at the older 1.1.1 Action.
+Use a reviewed commit from `main` for current defaults and the companion path.
+The immutable `v1.2.0` binary release tag precedes the follow-up default update;
+when using that tag's Action code, pass the version and archive digest explicitly.
 
 For security-critical workflows, pin the Action to the full reviewed commit
 SHA and explicitly verify the release archive that it downloads. This example
-pins the `v1.1.1` Action commit and its Linux AMD64 archive:
+pins the `v1.2.0` Action commit and its Linux AMD64 archive:
 
 ```yaml
-- uses: ClusterPilot-System/worldbisect@65e217a1e759bd35a0039d5dfcb17f8aebec01d2 # v1.1.1
+- uses: ClusterPilot-System/worldbisect@84ee56ebf4ccc0bfd89091e430829eb7b958ff4e # v1.2.0
   with:
     command: ./check.sh
     good-workspace: demo/good
     bad-workspace: demo/bad
-    version: 1.1.1
-    sha256: 5725bd04acdd9bedefddf899fd1bae19f914dd2d8db3d60eae4156d0324202c6
+    version: 1.2.0
+    sha256: 632370e3d3b02b31912c252d6d24d01a4f788f6f350cf8c84876f44d51c0615e
 ```
 
 Use the matching architecture-specific SHA-256 from the release's
@@ -290,7 +288,7 @@ Use the matching architecture-specific SHA-256 from the release's
 verify GitHub provenance as well:
 
 ```bash
-gh attestation verify worldbisect_1.1.1_linux_amd64.tar.gz \
+gh attestation verify worldbisect_1.2.0_linux_amd64.tar.gz \
   --repo ClusterPilot-System/worldbisect
 ```
 
@@ -329,9 +327,12 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: ClusterPilot-System/worldbisect@65e217a1e759bd35a0039d5dfcb17f8aebec01d2 # v1.1.1
+  - uses: ClusterPilot-System/worldbisect@84ee56ebf4ccc0bfd89091e430829eb7b958ff4e # v1.2.0
     id: worldbisect
     with:
+      version: 1.2.0
+      # Linux AMD64 archive; use the ARM64 digest on an ARM64 runner.
+      sha256: 632370e3d3b02b31912c252d6d24d01a4f788f6f350cf8c84876f44d51c0615e
       command: ./ci/check.sh
       good-workspace: packages/api/fixtures/good
       bad-workspace: packages/api/fixtures/bad

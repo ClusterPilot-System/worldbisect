@@ -9,7 +9,7 @@ on:
       release_version:
         description: Published release version to consume in the release E2E job
         required: false
-        default: '1.1.1'
+        default: '1.2.0'
         type: string
   schedule:
     - cron: '17 3 * * 1'
@@ -126,7 +126,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Consume published release package
         env:
-          WORLDBISECT_RELEASE_VERSION: ${{ inputs.release_version || '1.1.1' }}
+          WORLDBISECT_RELEASE_VERSION: ${{ inputs.release_version || '1.2.0' }}
         run: ./scripts/release-e2e.sh
 
   arm64-runtime:

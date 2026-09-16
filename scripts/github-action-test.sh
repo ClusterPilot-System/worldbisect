@@ -8,9 +8,9 @@ trap 'rm -rf "$tmp"' EXIT
 
 grep -q '^  comment-pr:' action.yml
 grep -q '^  github-token:' action.yml
-grep -q "default: '1.1.1'" action.yml
-grep -q '1.1.1/amd64' scripts/github-install.sh
-grep -q '1.1.1/arm64' scripts/github-install.sh
+grep -q "default: '1.2.0'" action.yml
+grep -q '1.2.0/amd64' scripts/github-install.sh
+grep -q '1.2.0/arm64' scripts/github-install.sh
 grep -q 'Publish JUnit test check' action.yml
 grep -q 'Prepare SARIF for Code Scanning' action.yml
 grep -q 'Update pull request summary comment' action.yml

@@ -167,6 +167,9 @@ approved support channel, retain it for the support period, and delete the
 bundle and any separately exported certificate when the case is closed. Keep
 the local signing key in the store backup; do not send it with the handoff.
 
+For a complete synthetic sender/receiver exercise, follow the
+[diagnostic handoff walkthrough](diagnostic-handoff-walkthrough.md).
+
 ## CI output and exit codes
 
 `compare` and `explain` support these machine-readable formats:
@@ -286,6 +289,41 @@ Capture uses native tracing automatically on Linux AMD64. Set
 `--trace=off` when the environment does not provide reliable ptrace behavior,
 for example a WSL workspace mounted below `/mnt`; the resulting report keeps
 the portable-capture boundary explicit.
+
+### Troubleshoot native capture
+
+Run `worldbisect doctor --store /tmp/worldbisect-example-store` first. A
+sanitized Linux AMD64 excerpt looks like this (other checks are omitted):
+
+```json
+{"checks":[{"name":"platform","ok":true,"value":"linux/amd64"},
+{"name":"procfs","ok":true},{"name":"store_parent","ok":true,"value":"/tmp/worldbisect-example-store"},
+{"name":"native_trace","ok":true,"value":"linux/amd64 only in 1.0"}]}
+```
+
+`native_trace: true` identifies a supported architecture; doctor does **not**
+test the kernel's ptrace permission. Inspect the capture's `result.boundaries`
+and the analysis report's boundaries to see whether native tracing actually
+ran. For example, `native syscall tracing failed; basic capture rerun used`
+describes an operational fallback on an otherwise supported machine.
+
+On ARM64, a false `native_trace` check is an expected platform limitation:
+portable capture remains available. A false `procfs` or `store_parent` check
+instead calls for checking the mounted procfs or choosing a writable store.
+Do not run as root merely to remove a warning.
+
+For a safe local probe from this repository's root:
+
+```bash
+worldbisect capture --trace=off --store /tmp/worldbisect-example-store \
+  --workspace examples/ci-baseline --oracle exit=0 -- /bin/sh -c 'grep -qx feature=enabled config.txt'
+```
+
+If this passes but automatic tracing falls back, check the runner/container's
+ptrace policy or use portable capture deliberately. WSL and commands that
+change process groups have additional [documented limits](limitations.md).
+If the command itself fails in both modes, investigate that command's inputs
+and exit code; a tracer warning is not evidence of the failure's cause.
 
 ## Daemon
 
