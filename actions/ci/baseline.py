@@ -181,7 +181,7 @@ def invoke(args, target, seconds, home):
 def capture(root, state, workspace, label):
     path = root / f'{label}.json'
     invoke([state['binary'], 'capture', '--store', str(root / 'store'), '--workspace', str(workspace),
-            '--format', 'json', '--trace', 'off', '--timeout', f"{state['timeout']}s",
+            '--format', 'json', '--timeout', f"{state['timeout']}s",
             '--max-workspace-files', '1024', '--max-workspace-bytes', str(MAX_BYTES),
             '--max-output-bytes', '65536', '--', *state['contract']['command']],
            path, state['timeout'] + 20, root / 'home')
