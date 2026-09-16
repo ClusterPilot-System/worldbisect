@@ -143,7 +143,7 @@ runs:
         always() && steps.run.outcome == 'success' &&
         ((github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
         github.event.pull_request.head.repo.full_name == github.repository)
-      uses: dorny/test-reporter@3eeb9fc888e82e8be2fb356bbeec2750231672bc # v1
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
       with:
         name: WorldBisect diagnosis (JUnit) / ${{ inputs.artifact-name }}
         path: ${{ steps.run.outputs.junit-path }}
