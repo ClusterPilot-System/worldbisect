@@ -2,6 +2,7 @@
 """Bounded CI input snapshots and orchestration; no new causal proof semantics."""
 import base64
 import hashlib
+import html
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -52,6 +53,17 @@ def safe_path(value):
     return path
 
 
+def reject_credentials(data):
+    # Conservative recognizable formats, not a claim to detect every secret.
+    patterns = [rb'-----BEGIN [A-Z ]*PRIVATE KEY-----',
+                rb'(?<![A-Za-z0-9])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Za-z0-9])',
+                rb'(?<![A-Za-z0-9])gh[pousr]_[A-Za-z0-9]{36,}',
+                rb'github_pat_[A-Za-z0-9_]{60,}',
+                rb'xox[baprs]-[A-Za-z0-9-]{20,}']
+    if any(re.search(pattern, data) for pattern in patterns):
+        raise ValueError('recognizable credential material cannot be retained')
+
+
 def read_selected(root, name):
     """Open every component relative to directory descriptors, without following links."""
     parts = safe_path(name).parts
@@ -71,8 +83,7 @@ def read_selected(root, name):
             if (len(data) > MAX_BYTES or (before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
                     != (after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)):
                 raise ValueError('selected file changed while being read')
-            if re.search(rb'-----BEGIN [A-Z ]*PRIVATE KEY-----', data):
-                raise ValueError('private key material cannot be retained')
+            reject_credentials(data)
             return {'path': name, 'mode': stat.S_IMODE(before.st_mode) & 0o777,
                     'data': base64.b64encode(data).decode(), 'sha256': hashlib.sha256(data).hexdigest()}
     except FileNotFoundError:
@@ -115,6 +126,7 @@ def validate(document, contract, source=None):
         total += len(data)
         if total > MAX_BYTES or hashlib.sha256(data).hexdigest() != item['sha256']:
             raise ValueError('invalid content digest or size')
+        reject_credentials(data)
         decoded.append((name, mode, data))
     if names != contract['files'] or len(set(names)) != len(names):
         raise ValueError('file selection mismatch')
@@ -297,27 +309,68 @@ def diagnose(root):
     save(root / 'state.json', state)
 
 
-def finish(root):
-    state = load(root / 'state.json')
+def safe_text(value, limit=400):
+    text = html.escape(str(value)[:limit], quote=False).replace('@', '@\u200b')
+    return re.sub(r'([\\`*_{}\[\]()+#!|])', r'\\\1', text).replace('\n', ' ')
+
+
+def summary_lines(state, result=None):
     status = state['status']
-    lines = ['# WorldBisect CI diagnosis', '', f'**Status:** `{status}`', '',
-             MESSAGES.get(status, 'Read the report below for tested factors, proof checks and next steps.'), '',
-             '**Scope:** selected files replayed on the current runner. Historical host, network, secrets and dependency state are not restored.', '']
+    lines = ['# WorldBisect CI diagnosis', '', f'**Status:** `{status}`', '']
+    if result is None:
+        lines += [MESSAGES.get(status, 'The diagnosis did not produce a complete report.'), '',
+                  '**Finding:** No causal claim.',
+                  '**Tested:** The selected command was attempted in staged inputs.',
+                  '**Confidence:** A cause has not been established.',
+                  '**Next step:** Follow the status guidance above.']
+    else:
+        causes = result.get('cause', [])
+        finding = '; '.join(safe_text(item.get('description', item.get('key', 'unknown'))) for item in causes[:3])
+        if len(causes) > 3:
+            finding += f'; and {len(causes) - 3} more (see full report)'
+        proof = result.get('proof', {})
+        forward = 'passed' if proof.get('forward_verified') else 'not established'
+        reverse = 'passed' if proof.get('reverse_verified') else 'not established'
+        confidence = {
+            'PROVEN': 'Confirmed within the selected inputs and tested model.',
+            'SUPPORTED': 'Supported by experiments; full proof checks did not pass.',
+            'CORRELATED': 'Associated difference; causal intervention did not establish proof.',
+            'UNPROVEN': 'Insufficient controlled evidence; no cause proven.',
+        }[status]
+        count = result.get('evidence', {}).get('experiment_count', 0)
+        steps = result.get('next_steps', [])
+        lines += [f'**Finding:** {finding or "No confirmed factor."}',
+                  f'**Tested:** {int(count)} experiments; repair: {forward}; reverse reproduction: {reverse}.',
+                  f'**Confidence:** {confidence}',
+                  '**Next step:** ' + safe_text(steps[0] if steps else 'Review the full diagnostic report.')]
+        boundaries = result.get('limitations', [])
+        if boundaries:
+            lines += ['**Limit:** ' + safe_text(boundaries[0])]
+    lines += ['', '**Scope:** Selected files on the current runner. Historical host, network, secrets and dependency state are not restored.']
     if state.get('baseline_source'):
         run = state['baseline_source']['run_id']
         repo = state['contract']['repository']
         if run.isdigit() and re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repo):
-            lines.extend([f'Baseline: [successful workflow run {run}](https://github.com/{repo}/actions/runs/{run})', ''])
-    report = root / 'artifacts' / 'report.md'
-    if report.exists():
-        lines.append(report.read_text()[:24000])
-    (root / 'artifacts' / 'summary.md').write_text('\n'.join(lines) + '\n')
+            lines.extend(['', f'Baseline: [successful workflow run {run}](https://github.com/{repo}/actions/runs/{run})'])
+    if result is not None:
+        lines += ['', 'The diagnostic artifact contains the complete factors, proof checks, next steps and evidence boundaries.']
+    return lines
+
+
+def finish(root):
+    state = load(root / 'state.json')
+    result = None
+    if state['status'] in ('PROVEN', 'SUPPORTED', 'CORRELATED', 'UNPROVEN'):
+        result = load(root / 'artifacts' / 'report.json')
+    summary_path = root / 'artifacts' / 'summary.md'
+    summary_path.write_text('\n'.join(summary_lines(state, result)) + '\n')
     save(root / 'artifacts' / 'outcome.json', {k: state[k] for k in ('status', 'command_exit')})
     summary = os.environ.get('GITHUB_STEP_SUMMARY')
     if summary:
         with open(summary, 'a') as stream:
-            stream.write('\n'.join(lines) + '\n')
-    output(status=status, command_exit=state['command_exit'], analysis_id=state.get('analysis_id', ''))
+            stream.write(summary_path.read_text())
+    output(status=state['status'], command_exit=state['command_exit'], analysis_id=state.get('analysis_id', ''),
+           summary_path=summary_path, comment_key=digest(state['contract'])[:32])
 
 
 if __name__ == '__main__':

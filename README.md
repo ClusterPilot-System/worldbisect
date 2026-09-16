@@ -1,22 +1,90 @@
 # WorldBisect
 
-**Git bisect for runtime reality.**
+**Your CI passed yesterday. Today it fails. Test what changed.**
 
-WorldBisect is a local-first Linux diagnostic system that finds the smallest supported set of runtime conditions that causes a command to fail. It captures good and bad executions, compares the runtime worlds they consulted, performs isolated counterfactual experiments, and emits a machine-verifiable causal result.
+[![CI](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/ci.yml/badge.svg)](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/ci.yml)
+[![Integration checks](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/real-workload-integrations.yml/badge.svg)](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/real-workload-integrations.yml)
+[Apache 2.0](LICENSE) · Linux AMD64 / ARM64 · Local CLI + GitHub Actions
 
-```bash
-worldbisect capture --output good.wcap -- ./application
-worldbisect capture --output bad.wcap -- ./application
-worldbisect compare --good good.wcap --bad bad.wcap -- ./application
+WorldBisect compares a working and failing execution, changes supported inputs
+in isolated copies, and reruns the command to test which differences explain
+the failure. Its CI Action can keep the working inputs for you.
+
+**Start here:** [CI setup](docs/ci-baselines.md) · [Try the demo](docs/quickstart-demo.md) ·
+[What “PROVEN” means](docs/proof-boundary.md) · [Integration evidence](docs/integration-validation.md)
+
+## A useful answer to a failed check
+
+A diagnosis explains four things up front:
+
+> **Finding:** The selected configuration file differs.
+>
+> **Tested:** Restoring the working file repairs the check; reversing the change reproduces the failure.
+>
+> **Confidence:** Confirmed within the selected inputs and tested model.
+>
+> **Next step:** Review and correct that configuration, then rerun your check.
+
+This is an illustrative summary. The actual result includes executed proof
+checks and evidence boundaries. Missing baselines, flaky commands and incomplete
+experiments are reported explicitly. `PROVEN` is never assigned by an AI model.
+
+## Let CI keep the working inputs
+
+```yaml
+permissions:
+  contents: read
+  actions: read
+
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    with:
+      persist-credentials: false
+  - uses: ClusterPilot-System/worldbisect/actions/ci@main # pin a reviewed commit
+    with:
+      command: '["./ci/check.sh"]'
+      files: |
+        ci/check.sh
+        config/app.conf
 ```
 
-For supported factors, a `PROVEN` result means the minimized factor set repairs the bad world and reproduces the failure when applied in the opposite direction. Unsupported or uncontrolled factors are reported as evidence boundaries rather than guessed causes.
+Run successfully on your default branch first. On a later failure, the Action
+retrieves compatible inputs from a successful run and tests the differences.
+No manually prepared `good` and `bad` folders are needed.
 
-This is the long-term product promise: WorldBisect delivers a verifiable cause
-within a declared proof boundary, not just more logs. Read the
-[`proof-boundary.md`](docs/proof-boundary.md) contract for the precise meaning
-of each result and how it differs from Git bisect, tracing, logs, and AI
-debuggers.
+The example is a job fragment; see the [complete workflow](docs/ci-baselines.md)
+for triggers, optional PR comments, retention and permissions. The companion
+Action is available on `main`, not the older `v1` / `v1.1.1` tags.
+
+**Select safe files deliberately.** Baselines contain their raw contents and are
+retained for seven days by default. Common credential paths and recognizable
+credential formats are rejected; this is not a complete secret scanner.
+
+## Where it fits
+
+| Good starting point | Current boundary |
+| --- | --- |
+| A configuration change breaks a repeatable Linux check | Selected regular files; up to 256 files / 16 MiB in CI mode |
+| A build or test works with old inputs and fails with new ones | Both versions must reproduce on the current runner |
+| You need a tested explanation in your workflow or PR | Historical hosts, services, packages and secrets are not restored |
+
+The standalone CLI also supports bounded environment and workspace
+interventions. WorldBisect is not an automatic code repair agent or a universal
+production-incident debugger. Read the [limitations](docs/limitations.md).
+
+## Try it, improve it, share a useful failure
+
+- Run the [public CI demo](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/ci-baseline-demo.yml).
+- Read the [Node.js, C and upstream Python integration checks](docs/integration-validation.md).
+- Ask a question in [Discussions](https://github.com/ClusterPilot-System/worldbisect/discussions).
+- Share a [sanitized user report](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=user-report.yml).
+- Pick a [good first issue](https://github.com/ClusterPilot-System/worldbisect/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22).
+
+If WorldBisect is useful to you, a GitHub star helps other developers discover it.
+Bug reports and reproducible examples help make it better.
+
+<details>
+<summary><strong>CLI installation, explicit-workspace Action and technical reference</strong></summary>
 
 ## Why WorldBisect
 
@@ -459,3 +527,5 @@ WorldBisect is licensed under Apache License 2.0. Contributions are welcome for 
 - [`Monthly maintenance notes`](docs/maintenance/)
 
 Security vulnerabilities must be reported privately through GitHub private vulnerability reporting.
+
+</details>
