@@ -41,6 +41,12 @@ These can be `CORRELATED`, `SUPPORTED` by operator evidence, or `UNPROVEN`.
 
 Native selected-syscall tracing is implemented for Linux AMD64. Other architectures use basic capture. ARM64 release artifacts are cross-compiled and structurally validated; runtime equivalence with AMD64 native tracing is not claimed.
 
+Native child waits are isolated to the check's process group. A command that
+calls `setsid` or `setpgid` is stopped before changing groups and rerun with
+portable capture; the result records that boundary. Native trace completeness
+is not claimed for commands that reorganize their process groups. Portable
+capture is not a sandbox for untrusted or daemonizing commands.
+
 Native tracing is best-effort and fail-safe. On WSL, workspaces mounted below
 `/mnt` can expose ptrace/wait behavior that is not equivalent to a native Linux
 filesystem. Run `worldbisect doctor` before a capture; if it reports the WSL

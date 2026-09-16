@@ -35,7 +35,7 @@ jobs:
         env:
           WORLDBISECT_REQUIRE_NATIVE_TRACE: '1'
         run: |
-          go test ./internal/runner -run Native -count=1 -v
+          go test ./internal/runner -run Native -count=20 -v
           python3 tests/integrations/real_workloads.py \
             --binary "$GITHUB_WORKSPACE/build/worldbisect" \
             --upstream "$GITHUB_WORKSPACE/build/upstream-itsdangerous" \

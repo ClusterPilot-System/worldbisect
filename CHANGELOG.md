@@ -24,8 +24,10 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 ### Fixed
 
 - Native Linux AMD64 tracing keeps ptrace operations on their owning OS
-  thread, scopes child waits to that thread, drains command output, and
-  bounds cancellation of nested processes. This fixes a compiler-check hang.
+  thread, scopes child waits to the isolated process group, drains command
+  output, and bounds cancellation of nested processes. Commands that change
+  process groups use documented portable fallback. This fixes a compiler-check
+  hang and concurrent command exit-status theft.
 - Release archives include the standalone installer.
 
 ### Community

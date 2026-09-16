@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -102,5 +103,25 @@ func TestNativeTracerCancelsNestedChildren(t *testing.T) {
 	_, _, err := runTraced(ctx, command)
 	if !errors.Is(err, context.DeadlineExceeded) || time.Since(started) > 3*time.Second {
 		t.Fatalf("cancellation was not bounded: err=%v duration=%s", err, time.Since(started))
+	}
+}
+
+func TestNativeTracerStopsBeforeProcessGroupEscape(t *testing.T) {
+	requireNativeTracer(t)
+	setsid, err := exec.LookPath("setsid")
+	if err != nil {
+		t.Skip("setsid utility unavailable")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	marker := filepath.Join(t.TempDir(), "escaped")
+	command := exec.Command(setsid, "/bin/sh", "-c", "printf escaped > \"$1\"", "check", marker)
+	command.SysProcAttr = &syscall.SysProcAttr{}
+	_, _, err = runTraced(ctx, command)
+	if err == nil || !strings.Contains(err.Error(), "process-group changes") {
+		t.Fatalf("expected explicit native boundary, got %v", err)
+	}
+	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("tracee escaped its group and executed the command")
 	}
 }
