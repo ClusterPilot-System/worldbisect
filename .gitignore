@@ -28,3 +28,7 @@ worldbisect-data/
 *.pem
 *.key
 *.token
+
+# Python test bytecode
+__pycache__/
+*.pyc

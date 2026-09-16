@@ -54,4 +54,5 @@ WORLDBISECT_E2E_TRACE=off ./scripts/release-e2e.sh \
   --version "$(cat VERSION)"
 printf '[12/12] GitHub Action\n'
 timeout --foreground 120s ./scripts/github-action-test.sh
+timeout --foreground 120s ./scripts/ci-baseline-test.sh
 printf 'release check: PASS\n'
