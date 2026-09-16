@@ -64,6 +64,8 @@ def run_case(name, workspace, command, changed_file, bad_content, binary, scratc
         b.diagnose(bad)
         b.finish(bad)
         state = b.load(bad / 'state.json')
+        if state['status'] != 'PROVEN':
+            raise RuntimeError(name + ': diagnosis status ' + state['status'] + ': ' + state.get('message', ''))
         report = b.load(bad / 'artifacts/report.json')
         keys = [item['key'] for item in report['cause']]
         if state['status'] != 'PROVEN' or state['command_exit'] != 1 or keys != [changed_file]:

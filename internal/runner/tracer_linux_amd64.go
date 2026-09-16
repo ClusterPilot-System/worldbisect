@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -20,11 +21,20 @@ const traceWaitPollInterval = 10 * time.Millisecond
 func nativeTracerAvailable() bool { return !runningOnWSL() }
 
 func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, error) {
+	// Linux ptrace ownership belongs to the OS thread that starts the child.
+	// Keep every ptrace and wait operation on that thread, and never reap
+	// children owned by another concurrent runner.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	command.SysProcAttr.Ptrace = true
 	command.SysProcAttr.Setpgid = true
+	command.WaitDelay = time.Second
 	if err := command.Start(); err != nil {
 		return nil, nil, err
 	}
+	// Wait4 below collects exit status, but Cmd.Wait must still join output
+	// copying goroutines and close its descriptors (its ECHILD is expected).
+	defer func() { _ = command.Wait() }()
 	pid := command.Process.Pid
 	stopOnCancel := make(chan struct{})
 	go func() {
@@ -62,7 +72,7 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 		default:
 		}
 		var waitStatus syscall.WaitStatus
-		waited, err := syscall.Wait4(-1, &waitStatus, syscall.WALL, nil)
+		waited, err := syscall.Wait4(-1, &waitStatus, syscall.WALL|syscall.WNOTHREAD, nil)
 		if err != nil {
 			if errors.Is(err, syscall.ECHILD) {
 				break
@@ -113,7 +123,7 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 		return paths, nil, ctx.Err()
 	}
 	if !mainPidSeen {
-		return paths, nil, nil
+		return paths, nil, errors.New("traced process exit status unavailable")
 	}
 	if mainStatus.Exited() {
 		if code := mainStatus.ExitStatus(); code != 0 {
@@ -128,11 +138,14 @@ func runTraced(ctx context.Context, command *exec.Cmd) ([]string, []string, erro
 }
 func killAndReapTracees(pid int, processes map[int]bool) {
 	_ = syscall.Kill(-pid, syscall.SIGKILL)
+	for child := range processes {
+		_ = syscall.Kill(child, syscall.SIGKILL)
+	}
 	deadline := time.Now().Add(time.Second)
 	for len(processes) > 0 && time.Now().Before(deadline) {
 		var status syscall.WaitStatus
-		waited, err := syscall.Wait4(-1, &status, syscall.WALL|syscall.WNOHANG, nil)
-		if waited != 0 {
+		waited, err := syscall.Wait4(-1, &status, syscall.WALL|syscall.WNOTHREAD|syscall.WNOHANG, nil)
+		if waited > 0 {
 			delete(processes, waited)
 			continue
 		}

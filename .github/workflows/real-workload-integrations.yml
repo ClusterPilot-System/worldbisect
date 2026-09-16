@@ -32,7 +32,10 @@ jobs:
           "$RUNNER_TEMP/worldbisect-integration-env/bin/pip" install --require-hashes -r tests/integrations/requirements.txt
           go build -o build/worldbisect ./cmd/worldbisect
       - name: Diagnose Node, C and upstream Python regressions
+        env:
+          WORLDBISECT_REQUIRE_NATIVE_TRACE: '1'
         run: |
+          go test ./internal/runner -run Native -count=1 -v
           python3 tests/integrations/real_workloads.py \
             --binary "$GITHUB_WORKSPACE/build/worldbisect" \
             --upstream "$GITHUB_WORKSPACE/build/upstream-itsdangerous" \
