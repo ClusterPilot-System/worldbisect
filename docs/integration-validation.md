@@ -13,16 +13,23 @@ claims of measured developer time savings**.
 | GCC compilation and execution | A C11 program compiles and passes its exit-code check | `compiler.flags` changes the language standard to C89 with pedantic errors | `PROVEN`, only `compiler.flags` identified |
 | Pallets ItsDangerous 2.2.0 upstream suite | **297 upstream tests pass** using the local `src` package | `pytest.ini` points `pythonpath` at a missing directory | `PROVEN`, only `pytest.ini` identified |
 
-All three cases passed locally on Linux AMD64 on 2026-09-16. Each completed
+All three cases passed locally and on native GitHub-hosted Linux AMD64 on
+2026-09-16. Each completed
 comparison reported nine experiments and preserved the failed check outcome.
-These local timings are not a performance benchmark. The
+These timings are not a performance benchmark. The
 [Real workload integrations workflow](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/real-workload-integrations.yml)
 runs the same checks on PRs and main and uploads `integration-results.json` with
 its measured duration, status, factor, experiment count and upstream revision.
+A [successful source run](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35132064995)
+also executes each of the four native process-tracing regressions 20 times.
+Restricted local containers may lack ptrace; the native GitHub job requires it
+and cannot silently fall back.
 
 The regular CI separately validates Go unit/race tests, packaging, the companion
 Action contracts and native AMD64/ARM64 behavior. Published engine contract tests
-exercise the official 1.1.1 binaries on both architectures.
+exercise the official 1.2.0 binaries on both architectures.
+The real-workload job also downloads the checksum-pinned 1.2.0 AMD64 release
+and repeats all three diagnoses, publishing `released-integration-results.json`.
 
 ## Reproduce
 
@@ -64,6 +71,12 @@ regression run. That run downloads the prior workflow's artifact, changes the
 synthetic configuration and requires both `PROVEN` and a failed original check.
 It also requires a nonempty `baseline-run-id`. This verifies the GitHub API,
 permissions, artifact format, provenance checks and download path end to end.
+
+Verified example: [successful baseline run 35132417741](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35132417741)
+was consumed by [regression run 35132454247](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35132454247),
+which asserted `status=PROVEN`, `outcome=failure`, and that exact baseline run ID.
+The verification job passes precisely because it confirms the deliberate failure
+and the diagnosis; the Action itself still returns the original check failure.
 
 ## What remains outside this evidence
 
