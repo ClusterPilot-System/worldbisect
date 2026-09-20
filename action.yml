@@ -23,9 +23,9 @@ inputs:
   version:
     description: WorldBisect release version without the leading v
     required: false
-    default: '1.2.0'
+    default: '1.2.1'
   sha256:
-    description: Optional SHA-256 of the selected archive. Defaults to the verified official v1.2.0 digest for the runner architecture.
+    description: Optional SHA-256 of the selected archive. Defaults to the verified official v1.2.1 digest for the runner architecture.
     required: false
     default: ''
   repository:
@@ -139,7 +139,7 @@ runs:
   - name: Run automatic CI diagnosis
     id: ci
     if: inputs.mode == 'ci'
-    uses: ClusterPilot-System/worldbisect/actions/ci@6eea7f0b29b25353a42408aabaef06531a2bd68c
+    uses: ClusterPilot-System/worldbisect/actions/ci@1ef4595f36e5153a1f4c072b6d115e4104d00dba
     with:
       command: ${{ inputs.command }}
       files: ${{ inputs.files }}
@@ -153,7 +153,7 @@ runs:
   - name: Compare explicit workspaces
     id: compare
     if: inputs.mode == 'compare'
-    uses: ClusterPilot-System/worldbisect/actions/compare@6eea7f0b29b25353a42408aabaef06531a2bd68c
+    uses: ClusterPilot-System/worldbisect/actions/compare@1ef4595f36e5153a1f4c072b6d115e4104d00dba
     with:
       command: ${{ inputs.command }}
       good-workspace: ${{ inputs.good-workspace }}

@@ -78,7 +78,7 @@ jobs:
             --report build/integration-results.json
       - name: Verify the same workloads with the published engine
         env:
-          INPUT_VERSION: '1.2.0'
+          INPUT_VERSION: '1.2.1'
           INPUT_REPOSITORY: ClusterPilot-System/worldbisect
         run: |
           set -Eeuo pipefail

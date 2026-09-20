@@ -80,9 +80,15 @@ interface automatically.
 The [WorldBisect CI Diagnosis listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis)
 is published and was verified on September 20. Its immutable
 [action-v1.0.0 release](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0)
-points to `8b054544cf3a8f9febf0b316214981a17817cce8`; the latest diagnosis engine
-remains version 1.2.0. [Installation and versioning](../marketplace.md) distinguish
-the Action and engine releases and retain the reviewed full-commit pin.
+points to `8b054544cf3a8f9febf0b316214981a17817cce8` and still defaults to
+engine 1.2.0. Engine [1.2.1 is now published](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.1).
+The next immutable Action, `action-v1.0.1`, is planned to select that engine.
+The [updated 1.2.1 demo is verified](../first-diagnosis.md): `PROVEN`,
+`config.txt`, nine experiments. The new Action publication remains pending.
+[Installation and versioning](../marketplace.md) distinguish the versions and
+record the release status; existing tags and assets must remain unchanged.
+The 1.2.1 binary packages still contain the CLI and daemon only. The team hub
+remains an experimental source-built component.
 
 The distribution work is recorded in completed [issue #61](https://github.com/ClusterPilot-System/worldbisect/issues/61).
 For future Action releases, verify both modes and the exact successful-baseline /

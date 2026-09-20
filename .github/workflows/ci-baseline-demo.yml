@@ -104,7 +104,7 @@ jobs:
       - name: Test companion contracts against the published engine
         shell: bash
         env:
-          INPUT_VERSION: '1.2.0'
+          INPUT_VERSION: '1.2.1'
           INPUT_REPOSITORY: ClusterPilot-System/worldbisect
         run: |
           set -Eeuo pipefail

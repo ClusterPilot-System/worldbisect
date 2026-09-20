@@ -18,9 +18,9 @@ inputs:
   version:
     description: WorldBisect release version without the leading v
     required: false
-    default: '1.2.0'
+    default: '1.2.1'
   sha256:
-    description: Optional SHA-256 of the selected archive. Defaults to the verified official v1.2.0 digest for the runner architecture.
+    description: Optional SHA-256 of the selected archive. Defaults to the verified official v1.2.1 digest for the runner architecture.
     required: false
     default: ''
   repository:
