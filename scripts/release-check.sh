@@ -20,7 +20,7 @@ printf '[6/12] static contracts and web assets\n'
 if command -v node >/dev/null 2>&1; then node --check web/app.js; fi
 node --check web/hub/app.js
 node --test web/hub/app.test.js
-python3 -m unittest discover -s scripts -p 'test_publish_hub_report.py'
+python3 -m unittest discover -s scripts -p 'test_*hub*.py'
 python3 - <<'PY'
 import json, pathlib
 for path in [pathlib.Path('configs/worldbisect.example.json')]:

@@ -1,0 +1,43 @@
+name: Hub identity verification
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hub-identity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  github-oidc:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build source hub and generate a real diagnosis
+        env:
+          WORLDBISECT_E2E_TRACE: "off"
+          WORLDBISECT_E2E_ARTIFACT_DIR: build/diagnostics
+        run: |
+          make build-hub
+          timeout --foreground 120s ./scripts/e2e.sh
+      - name: Verify live GitHub identity and durable replay rejection
+        run: python3 scripts/hub-oidc-e2e.py --report build/diagnostics/analysis.json
+      - name: Remove generated local reports
+        if: always()
+        run: rm -rf build/diagnostics

@@ -25,7 +25,7 @@ func testConfig() Config {
 	c := Config{Version: 1, RetentionDays: 7, MaxReportsPerWorkspace: 500}
 	for _, item := range []struct{ token, workspace, permission string }{{tokenA, "alpha", "write"}, {tokenReadA, "alpha", "read"}, {tokenB, "beta", "write"}} {
 		digest := sha256.Sum256([]byte(item.token))
-		c.Keys = append(c.Keys, Key{hex.EncodeToString(digest[:]), item.workspace, item.permission})
+		c.Keys = append(c.Keys, Key{TokenSHA256: hex.EncodeToString(digest[:]), Workspace: item.workspace, Permission: item.permission})
 	}
 	return c
 }

@@ -16,7 +16,7 @@ build-hub:
 
 test-hub:
 	$(GO) test -race ./internal/hub ./cmd/worldbisect-hub ./web/hub -count=1
-	$(PYTHON) -m unittest discover -s scripts -p 'test_publish_hub_report.py'
+	$(PYTHON) -m unittest discover -s scripts -p 'test_*hub*.py'
 	node --check web/hub/app.js
 	node --test web/hub/app.test.js
 

@@ -19,6 +19,7 @@ button:hover:enabled{filter:brightness(.95)}
 .brand-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;color:#8ae2ef;font-size:16px;border:1px solid #2c5364;border-radius:8px;letter-spacing:-2px;padding-right:3px}
 .preview-label{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:#b8ccd9;border-left:1px solid #365064;padding-left:18px}
 .session-controls{margin-left:auto;display:flex;align-items:center;gap:18px;font-size:13px;color:#c6d5e0}
+#workspace-label{min-width:0;overflow-wrap:anywhere}
 .button-quiet{background:transparent;color:#47596c;padding:9px 10px}
 .button-on-dark{color:#d8eff5;border:1px solid #3c5261}
 main{max-width:1320px;width:calc(100% - 64px);margin:0 auto}

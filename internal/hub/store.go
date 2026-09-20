@@ -84,17 +84,28 @@ func (s *Store) workspaceDir(workspace string) (string, error) {
 			break
 		}
 	}
+	for _, member := range s.config.Memberships {
+		if member.Workspace == workspace {
+			allowed = true
+		}
+	}
 	if !allowed {
 		return "", ErrNotFound
 	}
 	digest := sha256.Sum256([]byte(workspace))
 	dir := filepath.Join(s.root, hex.EncodeToString(digest[:]))
 	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
-		entries, err := boundedEntries(s.root, 102)
+		entries, err := boundedEntries(s.root, 116)
 		if err != nil {
 			return "", err
 		}
-		if len(entries) >= 101 {
+		count := 0
+		for _, entry := range entries {
+			if entry.IsDir() {
+				count++
+			}
+		}
+		if count >= 100 {
 			return "", errors.New("hub workspace directory limit reached")
 		}
 	}
@@ -173,6 +184,9 @@ func (s *Store) load(dir string) ([]Report, error) {
 		if err := report.Submission.Validate(); err != nil {
 			return nil, fmt.Errorf("invalid stored hub report: %w", err)
 		}
+		if err := report.Publisher.validate(report.Submission); err != nil {
+			return nil, err
+		}
 		if !report.CreatedAt.After(cutoff) {
 			if err := os.Remove(path); err != nil {
 				return nil, err
@@ -208,7 +222,16 @@ func (s *Store) List(workspace string) ([]Report, error) {
 }
 
 func (s *Store) Create(workspace string, submission Submission) (Report, error) {
+	return s.CreateVerified(workspace, submission, nil)
+}
+
+// CreateVerified accepts origin metadata only from the internal CI verifier.
+// Submission never contains this field, preventing spoofing through JSON input.
+func (s *Store) CreateVerified(workspace string, submission Submission, publisher *PublisherIdentity) (Report, error) {
 	if err := submission.Validate(); err != nil {
+		return Report{}, err
+	}
+	if err := publisher.validate(submission); err != nil {
 		return Report{}, err
 	}
 	s.mu.Lock()
@@ -228,7 +251,7 @@ func (s *Store) Create(workspace string, submission Submission) (Report, error) 
 	if _, err := rand.Read(random[:]); err != nil {
 		return Report{}, err
 	}
-	report := Report{ID: hex.EncodeToString(random[:]), CreatedAt: s.now().UTC(), Submission: submission}
+	report := Report{ID: hex.EncodeToString(random[:]), CreatedAt: s.now().UTC(), Submission: submission, Publisher: publisher}
 	b, err := json.Marshal(report)
 	if err != nil {
 		return Report{}, err
@@ -291,12 +314,30 @@ func (s *Store) PurgeExpired() error {
 	if s.closed {
 		return errors.New("hub store is closed")
 	}
-	entries, err := boundedEntries(s.root, 102)
+	entries, err := boundedEntries(s.root, 116)
 	if err != nil {
 		return err
 	}
 	for _, entry := range entries {
 		if entry.Name() == ".hub.lock" {
+			continue
+		}
+		if entry.Name() == replayFilename {
+			info, err := entry.Info()
+			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 256*1024 {
+				return errors.New("invalid CI replay ledger")
+			}
+			continue
+		}
+		if strings.HasPrefix(entry.Name(), ".tmp-") {
+			// Only private regular files from interrupted atomic ledger writes.
+			info, err := entry.Info()
+			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+				return errors.New("invalid temporary hub file")
+			}
+			if err := os.Remove(filepath.Join(s.root, entry.Name())); err != nil {
+				return err
+			}
 			continue
 		}
 		digest, err := hex.DecodeString(entry.Name())

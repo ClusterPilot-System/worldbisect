@@ -26,6 +26,24 @@ const reports = [
     next_step: "Check the reproduction environment.", experiments: 2,
   },
 ];
+const sessions = {
+  "Bearer test-writer-token": {
+    workspace: "example-team", permission: "write", subject_id: "alice", kind: "user",
+    credential_id: "writer-key", role: "editor", scopes: ["reports:read", "reports:write", "reports:delete"],
+  },
+  "Bearer test-reader-token": {
+    workspace: "example-team", permission: "read", subject_id: "bob", kind: "user",
+    credential_id: "reader-key", role: "viewer", scopes: ["reports:read"],
+  },
+  "Bearer test-limited-editor-token": {
+    workspace: "example-team", permission: "write", subject_id: "charlie", kind: "user",
+    credential_id: "limited-editor-key", role: "editor", scopes: ["reports:read", "reports:write"],
+  },
+  "Bearer test-publisher-token": {
+    workspace: "example-team", permission: "write", subject_id: "build-ci", kind: "service",
+    credential_id: "publisher-key", role: "publisher", scopes: ["reports:write"],
+  },
+};
 let expired = false;
 const calls = [];
 const server = http.createServer((request, response) => {
@@ -34,16 +52,24 @@ const server = http.createServer((request, response) => {
   if (request.url.startsWith("/api/")) {
     response.setHeader("Content-Type", "application/json");
     const authorization = request.headers.authorization;
-    calls.push({ path: request.url, authorization });
-    if (expired || !["Bearer test-writer-token", "Bearer test-reader-token"].includes(authorization)) {
+    calls.push({ path: request.url, method: request.method, authorization });
+    const session = sessions[authorization];
+    if (expired || !session) {
       response.writeHead(401).end(JSON.stringify({ error: "Expired or invalid token" }));
       return;
     }
     if (request.url === "/api/v1/session") {
-      response.end(JSON.stringify({ workspace: "example-team", permission: authorization === "Bearer test-reader-token" ? "read" : "write" }));
-    } else if (request.url === "/api/v1/reports") {
-      response.end(JSON.stringify({ reports }));
+      response.end(JSON.stringify(session));
     } else {
+      const requiredScope = request.method === "DELETE" ? "reports:delete" : "reports:read";
+      if (!session.scopes.includes(requiredScope)) {
+        response.writeHead(403).end(JSON.stringify({ error: `${requiredScope} required` }));
+        return;
+      }
+      if (request.url === "/api/v1/reports") {
+        response.end(JSON.stringify({ reports }));
+        return;
+      }
       const report = reports.find((item) => request.url === `/api/v1/reports/${item.id}`);
       if (report) response.end(JSON.stringify(report));
       else response.writeHead(404).end(JSON.stringify({ error: "Report not found" }));
@@ -71,9 +97,12 @@ async function main() {
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.screenshot({ path: path.join(output, "desktop-login.png"), fullPage: true });
 
-    async function connect(token) {
+    async function submitToken(token) {
       await page.getByLabel("Workspace access token").fill(token);
       await page.getByRole("button", { name: "Open workspace" }).click();
+    }
+    async function connect(token) {
+      await submitToken(token);
       await page.locator("#dashboard").waitFor({ state: "visible" });
     }
     async function selectReport(name) {
@@ -86,6 +115,7 @@ async function main() {
     }
 
     await connect("test-writer-token");
+    assert.match(await page.locator("#workspace-label").textContent(), /alice · editor · Read, publish & delete/);
     assert.equal(await page.getByLabel("Workspace access token").inputValue(), "");
     assert.equal(await page.locator(".report-button").count(), 2);
     await page.getByLabel("Repository", { exact: true }).selectOption("example/worker");
@@ -117,7 +147,34 @@ async function main() {
     assert.equal(await page.locator("#run-link").getAttribute("href"), null);
     assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
 
+    await connect("test-limited-editor-token");
+    await selectReport("Configuration check");
+    assert.match(await page.locator("#workspace-label").textContent(), /charlie · editor · Read & publish/);
+    assert.equal(await page.locator("#delete").isVisible(), false, "editor role and write permission must not imply delete scope");
+    // Dispatching hidden controls checks the handler guards as well as rendering.
+    await page.locator("#delete").dispatchEvent("click");
+    await page.locator("#delete-yes").dispatchEvent("click");
+    assert.equal(await page.locator("#delete-confirm").isVisible(), false);
+    assert.equal(calls.some((call) => call.authorization === "Bearer test-limited-editor-token" && call.method === "DELETE"), false);
+    await assertNoOverflow();
+    await page.getByRole("button", { name: "Disconnect" }).click();
+
+    const publisherCallsBefore = calls.length;
+    await submitToken("test-publisher-token");
+    await page.locator("#notice").filter({ hasText: "publishing credential cannot read team reports" }).waitFor({ state: "visible" });
+    assert.equal(await page.locator("#dashboard").isVisible(), false);
+    assert.equal(await page.locator("#login").isVisible(), true);
+    assert.equal(await page.locator("#report-list").textContent(), "");
+    assert.equal(await page.locator("#detail-finding").textContent(), "");
+    assert.equal(await page.locator("#workspace-label").textContent(), "");
+    assert.equal(await page.getByLabel("Workspace access token").inputValue(), "");
+    await page.locator("#refresh").dispatchEvent("click");
+    assert.deepEqual(calls.slice(publisherCallsBefore).map((call) => [call.path, call.method]),
+      [["/api/v1/session", "GET"]], "publisher must never send a list or detail request, including from hidden refresh");
+    await assertNoOverflow();
+
     await connect("test-reader-token");
+    assert.match(await page.locator("#workspace-label").textContent(), /bob · viewer · Read only/);
     await selectReport("Configuration check");
     assert.equal(await page.locator("#delete").isVisible(), false, "read-only access must not offer deletion");
     expired = true;
@@ -130,7 +187,7 @@ async function main() {
     assert.deepEqual(errors, [], "no browser script errors");
     assert.deepEqual(dialogs, [], "report text must never execute");
     assert(calls.length >= 6 && calls.every((call) => !call.path.includes("token") && call.authorization?.startsWith("Bearer ")));
-    console.log("PASS: hub browser login, repository/status/search filters, untrusted text and links, memory-only token, disconnect, read-only controls, 401 cleanup, desktop/mobile layout.");
+    console.log("PASS: hub browser login, filters, untrusted text and links, memory-only token, disconnect, effective read/delete scopes, limited editor, publisher denied without report requests, 401 cleanup, desktop/mobile layout.");
     console.log(`Screenshots: ${output}`);
   } catch (error) {
     if (page) await page.screenshot({ path: path.join(output, "failure.png"), fullPage: true }).catch(() => {});
