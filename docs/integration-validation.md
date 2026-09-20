@@ -26,10 +26,15 @@ Restricted local containers may lack ptrace; the native GitHub job requires it
 and cannot silently fall back.
 
 The regular CI separately validates Go unit/race tests, packaging, the companion
-Action contracts and native AMD64/ARM64 behavior. Published engine contract tests
-exercise the official 1.2.0 binaries on both architectures.
-The real-workload job also downloads the checksum-pinned 1.2.0 AMD64 release
-and repeats all three diagnoses, publishing `released-integration-results.json`.
+Action contracts and native AMD64/ARM64 behavior. The earlier published-engine
+checks exercised official 1.2.0 binaries on both architectures, and the
+real-workload job repeated all three diagnoses with the checksum-pinned 1.2.0
+AMD64 release. Those results remain historical 1.2.0 evidence.
+
+The next release-consumption update targets 1.2.1 for both architecture contracts
+and the AMD64 workload diagnoses. A successful 1.2.1 run must be linked here
+before claiming those checks passed for the new release. The workload artifact
+is `released-integration-results.json`.
 
 ## Reproduce
 

@@ -25,7 +25,7 @@ body:
     id: version-platform
     attributes:
       label: Version and platform, if available
-      placeholder: WorldBisect 1.2.0, Ubuntu 24.04, AMD64; or not installed yet
+      placeholder: WorldBisect 1.2.1, Ubuntu 24.04, AMD64; or not installed yet
   - type: textarea
     id: check-and-outcome
     attributes:

@@ -67,7 +67,7 @@ Bundle export is run twice and compared byte-for-byte. Release packaging is run 
 make check
 make test-race
 make e2e
-./scripts/release-e2e.sh --version 1.1.1
+./scripts/release-e2e.sh --version 1.2.1
 make coverage
 ```
 

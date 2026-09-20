@@ -1,8 +1,13 @@
 # Get your first tested diagnosis
 
-See WorldBisect identify one configuration change using its **published 1.2.0
+See WorldBisect identify one configuration change using its **published 1.2.1
 binary**. No account, Go installation, root access or changes to your CI are
 needed. This is a deliberately introduced regression, not a customer incident.
+
+Engine [1.2.1 is published](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.1).
+The script pins the published archive checksums, and its 1.2.1 run passed the
+expected diagnosis checks. See [publication status](marketplace.md) for the
+separate Action release.
 
 ## Copy, run, inspect
 
@@ -44,6 +49,11 @@ next step. In this controlled example, the next step is to correct `config.txt`
 and rerun the original check. The deliberately failing capture is expected;
 the script succeeds only when the comparison reports the expected proof state
 and file. A different result is a finding to investigate, not something to hide.
+
+Verified on September 20, 2026 with the downloaded Linux AMD64 1.2.1 archive:
+`PROVEN`, `config.txt`, nine experiments, analysis
+`ana_f343b3c7bec15630d65c4304`. This local run took 20 seconds including download.
+That is one measured run, not a performance benchmark or a setup-time promise.
 
 ## What you just tested
 
