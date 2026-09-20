@@ -12,6 +12,12 @@ self-contained tests. It is not a drop-in replay of an arbitrary build machine.
 
 ## Quick start
 
+The repository-root Action now also exposes this workflow with `mode: ci`.
+Use the [complete pinned root example](examples/root-ci-workflow.yml) and see
+[distribution and Marketplace status](marketplace.md). Existing root consumers
+keep the explicit-workspace `compare` mode by default; the companion path below
+continues to work.
+
 The companion Action is available from the repository revision containing
 `actions/ci`. Existing `v1`/`v1.1.1` Action tags do not include this new path.
 For production, replace `main` below with a reviewed full commit SHA containing

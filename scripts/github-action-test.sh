@@ -11,9 +11,11 @@ grep -q '^  github-token:' action.yml
 grep -q "default: '1.2.0'" action.yml
 grep -q '1.2.0/amd64' scripts/github-install.sh
 grep -q '1.2.0/arm64' scripts/github-install.sh
-grep -q 'Publish JUnit test check' action.yml
-grep -q 'Prepare SARIF for Code Scanning' action.yml
-grep -q 'Update pull request summary comment' action.yml
+grep -q 'Publish JUnit test check' actions/compare/action.yml
+grep -q 'Prepare SARIF for Code Scanning' actions/compare/action.yml
+grep -q 'Update pull request summary comment' actions/compare/action.yml
+
+python3 -m unittest discover -s scripts -p 'test_action_mode.py'
 
 binary="$tmp/worldbisect"
 # The race build deliberately disables the native ptrace tracer. This keeps the
