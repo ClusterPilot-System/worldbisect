@@ -13,6 +13,42 @@ permissions:
   contents: read
   actions: read
 jobs:
+  compare-mode:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      checks: write
+      security-events: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare the existing explicit-workspace fixture
+        run: |
+          mkdir -p build/compare-good build/compare-bad
+          cp examples/file-cause/check.sh build/compare-good/check.sh
+          cp examples/file-cause/check.sh build/compare-bad/check.sh
+          cp examples/file-cause/config.good.txt build/compare-good/config.txt
+          cp examples/file-cause/config.bad.txt build/compare-bad/config.txt
+      - name: Verify default compare mode through the root Action
+        id: compare
+        uses: ./
+        with:
+          command: /bin/sh ./check.sh
+          good-workspace: build/compare-good
+          bad-workspace: build/compare-bad
+          artifact-name: root-compare-compatibility
+      - name: Confirm compatibility outputs
+        env:
+          STATUS: ${{ steps.compare.outputs.status }}
+          ANALYSIS_ID: ${{ steps.compare.outputs.analysis-id }}
+          REPORT_URL: ${{ steps.compare.outputs.report-artifact-url }}
+        run: |
+          test "$STATUS" = PROVEN
+          test -n "$ANALYSIS_ID"
+          test -n "$REPORT_URL"
   demo:
     permissions:
       contents: read
