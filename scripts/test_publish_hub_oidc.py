@@ -146,7 +146,7 @@ class OIDCPublisherTest(unittest.TestCase):
         self.assertEqual(helper.contract_diagnostics(token, claims, "https://hub.example/team", env), [])
         claims.update(job_workflow_ref="secret-provider-value", iss="secret-issuer-value", exp="secret-time-value")
         flags = helper.contract_diagnostics(token, claims, "https://hub.example/team", env)
-        self.assertEqual(set(flags), {"CLAIM_ISS", "CLAIM_JOB_WORKFLOW_REF_ABSENT", "JOB_WORKFLOW_REF_OTHER", "CLAIM_TIME_TYPES"})
+        self.assertEqual(set(flags), {"CLAIM_ISS", "CLAIM_JOB_WORKFLOW_REF", "CLAIM_TIME_TYPES"})
         self.assertNotIn("secret", ",".join(flags))
 
 

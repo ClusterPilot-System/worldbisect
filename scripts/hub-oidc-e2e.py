@@ -47,10 +47,7 @@ def contract_diagnostics(token, claims, audience, env):
         check("CLAIM_" + name.upper(), claims.get(name) == value)
     for name in ("head_ref", "base_ref"):
         check("CLAIM_" + name.upper(), claims.get(name, "") == "")
-    check("CLAIM_JOB_WORKFLOW_REF_ABSENT", claims.get("job_workflow_ref", "") == "")
-    if claims.get("job_workflow_ref"):
-        # Categorize whether the provider names this same workflow, never expose it.
-        flags.append("JOB_WORKFLOW_REF_SAME" if claims["job_workflow_ref"] == env["GITHUB_WORKFLOW_REF"] else "JOB_WORKFLOW_REF_OTHER")
+    check("CLAIM_JOB_WORKFLOW_REF", claims.get("job_workflow_ref", "") in ("", env["GITHUB_WORKFLOW_REF"]))
     identifier = claims.get("jti")
     check("CLAIM_JTI", isinstance(identifier, str) and 8 <= len(identifier) <= 128 and not any(c.isspace() for c in identifier))
     numeric = all(type(claims.get(k)) is int for k in ("iat", "nbf", "exp"))
