@@ -129,6 +129,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
+    except Exception as error:
         # Do not include provider responses, token claims or subprocess output.
-        raise SystemExit("live OIDC E2E failed; inspect job permissions and the fixed trust boundary") from None
+        raise SystemExit("live OIDC E2E failed [" + publisher.safe_error_code(error) +
+                         "]; inspect job permissions and the fixed trust boundary") from None
