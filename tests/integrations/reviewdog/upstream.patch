@@ -1,0 +1,26 @@
+--- a/README.md
++++ b/README.md
+@@ -303,6 +303,23 @@
+ # Local
+ $ eslint -f @microsoft/eslint-formatter-sarif . | reviewdog -f=sarif -diff="git diff"
+ ````
++
++Before enabling a remote reporter, you can inspect the parsed paths and messages
++locally without posting comments:
++
++```shell
++reviewdog -f=sarif -reporter=rdjson -filter-mode=nofilter < report.sarif
++```
++
++For file-based reporting, check that each `physicalLocation.artifactLocation.uri`
++resolves to the intended file from the directory where reviewdog runs. An
++analysis identifier such as `analysis://run/123` is not a source-file location;
++keep report links in the message or rule `helpUri` instead.
++
++The default `-filter-mode=added` keeps diagnostics on added or modified lines.
++For a diagnostic that applies to a whole changed file, `-filter-mode=file` can be
++more appropriate. `-filter-mode=nofilter` helps inspect parsed diagnostics, but
++does not turn a non-file URI into a valid file path.
+ 
+ ## Code Suggestions
+ 

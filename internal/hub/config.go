@@ -12,28 +12,50 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"time"
 )
 
 const MaxBodyBytes = 16 * 1024
 
+type Subject struct {
+	ID       string `json:"id"`
+	Kind     string `json:"kind"`
+	Disabled bool   `json:"disabled,omitempty"`
+}
+
+type Membership struct {
+	SubjectID string `json:"subject_id"`
+	Workspace string `json:"workspace"`
+	Role      string `json:"role"`
+}
+
 type Key struct {
-	TokenSHA256 string `json:"token_sha256"`
-	Workspace   string `json:"workspace"`
-	Permission  string `json:"permission"`
+	ID          string     `json:"id,omitempty"`
+	SubjectID   string     `json:"subject_id,omitempty"`
+	Scopes      []string   `json:"scopes,omitempty"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	TokenSHA256 string     `json:"token_sha256"`
+	Workspace   string     `json:"workspace"`
+	Permission  string     `json:"permission"`
 }
 
 type Config struct {
-	Version                int   `json:"version"`
-	RetentionDays          int   `json:"retention_days"`
-	MaxReportsPerWorkspace int   `json:"max_reports_per_workspace"`
-	Keys                   []Key `json:"keys"`
+	Subjects               []Subject     `json:"subjects,omitempty"`
+	Memberships            []Membership  `json:"memberships,omitempty"`
+	CIQuarantineUntil      *time.Time    `json:"ci_quarantine_until,omitempty"`
+	CIPublishers           []CIPublisher `json:"ci_publishers,omitempty"`
+	AuditRetentionDays     int           `json:"audit_retention_days,omitempty"`
+	Version                int           `json:"version"`
+	RetentionDays          int           `json:"retention_days"`
+	MaxReportsPerWorkspace int           `json:"max_reports_per_workspace"`
+	Keys                   []Key         `json:"keys"`
 }
 
 var workspacePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
 
 func (c Config) Validate() error {
-	if c.Version != 1 {
-		return errors.New("hub configuration version must be 1")
+	if c.Version != 1 && c.Version != 2 {
+		return errors.New("hub configuration version must be 1 or 2")
 	}
 	if c.RetentionDays < 1 || c.RetentionDays > 30 {
 		return errors.New("retention_days must be between 1 and 30")
@@ -41,8 +63,11 @@ func (c Config) Validate() error {
 	if c.MaxReportsPerWorkspace < 1 || c.MaxReportsPerWorkspace > 1000 {
 		return errors.New("max_reports_per_workspace must be between 1 and 1000")
 	}
-	if len(c.Keys) == 0 || len(c.Keys) > 100 {
+	if (len(c.Keys) == 0 && len(c.CIPublishers) == 0) || len(c.Keys) > 100 {
 		return errors.New("configuration requires between 1 and 100 keys")
+	}
+	if err := validateAccessConfig(c); err != nil {
+		return err
 	}
 	seen := make(map[string]bool)
 	for i, key := range c.Keys {
@@ -61,7 +86,7 @@ func (c Config) Validate() error {
 			return fmt.Errorf("key %d permission must be read or write", i)
 		}
 	}
-	return nil
+	return ValidateCIPublishers(c)
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -94,7 +119,7 @@ func LoadConfig(path string) (Config, error) {
 // Initialize never overwrites an existing configuration. Raw keys are returned
 // exactly once to the operator; only their hashes are persisted.
 func Initialize(path string) (map[string]string, error) {
-	c := Config{Version: 1, RetentionDays: 7, MaxReportsPerWorkspace: 500}
+	c := Config{Version: 2, RetentionDays: 7, MaxReportsPerWorkspace: 500, AuditRetentionDays: 7}
 	tokens := make(map[string]string)
 	for _, permission := range []string{"read", "write"} {
 		var random [32]byte
@@ -103,7 +128,14 @@ func Initialize(path string) (map[string]string, error) {
 		}
 		token := "wbh_" + hex.EncodeToString(random[:])
 		digest := sha256.Sum256([]byte(token))
-		c.Keys = append(c.Keys, Key{TokenSHA256: hex.EncodeToString(digest[:]), Workspace: "default", Permission: permission})
+		subject := "default-" + permission
+		role := "viewer"
+		if permission == "write" {
+			role = "editor"
+		}
+		c.Subjects = append(c.Subjects, Subject{ID: subject, Kind: "service"})
+		c.Memberships = append(c.Memberships, Membership{SubjectID: subject, Workspace: "default", Role: role})
+		c.Keys = append(c.Keys, Key{ID: subject + "-key", SubjectID: subject, TokenSHA256: hex.EncodeToString(digest[:]), Workspace: "default", Permission: permission})
 		tokens[permission] = token
 	}
 	b, err := json.MarshalIndent(c, "", "  ")

@@ -19,6 +19,12 @@ after reviewing and testing the implementation revision. Existing release tags
 must never move. The Action revision and downloaded engine version are separate:
 the current engine remains the checksum-verified **1.2.0** release.
 
+The implementation revisions are retained on the archival branch
+`action-implementations/root-ci-v1`, because this repository requires squash
+merges. Keep that branch: the root adapter and example use full commit SHAs
+from its history. Future implementation updates need a retained reviewed
+revision before changing the pins; do not delete or rewrite their history.
+
 ## Complete CI example
 
 Use the pinned workflow in [the root Action example](examples/root-ci-workflow.yml).

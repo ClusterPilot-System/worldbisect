@@ -1,0 +1,41 @@
+name: Getting started or first-result feedback
+description: Get help choosing a CI check or share where your first attempt stopped
+title: "[Getting started]: "
+labels: ["triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Which repeatable Linux check are you trying to diagnose, and where did you get stuck?
+        A short answer is enough. This is public: omit secrets, private paths, raw captures,
+        customer data and private logs. Describe private projects generically.
+  - type: dropdown
+    id: stage
+    attributes:
+      label: What are you trying?
+      options:
+        - Controlled first-diagnosis demo
+        - My own CLI check
+        - GitHub Actions baselines
+        - Team report hub preview
+        - Choosing a first use case
+    validations:
+      required: true
+  - type: input
+    id: version-platform
+    attributes:
+      label: Version and platform, if available
+      placeholder: WorldBisect 1.2.0, Ubuntu 24.04, AMD64; or not installed yet
+  - type: textarea
+    id: check-and-outcome
+    attributes:
+      label: What check did you try, and what happened?
+      description: Describe the check, the step where you stopped, or the result status. A synthetic example is welcome.
+      placeholder: I want to validate a config file. I completed the demo but am unsure which files to select in CI.
+    validations:
+      required: true
+  - type: textarea
+    id: next-action
+    attributes:
+      label: Did the result help you choose a next action?
+      description: Optional. What was useful or missing? There is no need to report a success.

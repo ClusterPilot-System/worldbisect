@@ -27,6 +27,37 @@
         .some((value) => typeof value === "string" && value.toLowerCase().includes(needle))));
   }
 
+  // Effective scopes include both the workspace role and credential limits.
+  // The legacy permission label is not sufficient to authorize an operation:
+  // a publisher can have permission=write without read or delete access.
+  function sessionAccess(session) {
+    if (typeof session?.workspace !== "string" || !session.workspace.trim()
+      || !Array.isArray(session.scopes) || session.scopes.some((scope) => typeof scope !== "string")) {
+      throw new Error("The hub returned an invalid workspace session or omitted its access scopes.");
+    }
+    const scopes = new Set(session.scopes);
+    return {
+      read: scopes.has("reports:read"),
+      write: scopes.has("reports:write"),
+      delete: scopes.has("reports:delete"),
+    };
+  }
+
+  function accessLabel(access) {
+    if (access.read && access.write && access.delete) return "Read, publish & delete";
+    if (access.read && access.write) return "Read & publish";
+    if (access.read && access.delete) return "Read & delete";
+    if (access.read) return "Read only";
+    if (access.write) return "Publish only";
+    return "No report reading access";
+  }
+
+  function readAccessMessage(access) {
+    return access.write
+      ? "This publishing credential cannot read team reports. Use a viewer or editor credential with report-reading access."
+      : "This credential cannot read team reports. Use a credential with report-reading access.";
+  }
+
   function cancelled() {
     const error = new Error("Session changed.");
     error.name = "AbortError";
@@ -81,7 +112,9 @@
         if (started !== epoch) throw cancelled();
         if (!response.ok) {
           const message = typeof data?.error === "string" ? data.error.slice(0, 400) : `Request failed (${response.status}).`;
-          throw new Error(message);
+          const error = new Error(message);
+          error.status = response.status;
+          throw error;
         }
         return data;
       } finally {
@@ -93,14 +126,14 @@
 
   // Export security-sensitive helpers for the dependency-free Node tests.
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { safeRunURL, filterReports, createClient };
+    module.exports = { safeRunURL, filterReports, createClient, sessionAccess };
   }
   if (typeof document === "undefined") return;
 
   const get = (id) => document.getElementById(id);
   let reports = [];
   let selected = null;
-  let permission = "read";
+  let access = { read: false, write: false, delete: false };
   let listVersion = 0;
   let detailVersion = 0;
   let connected = false;
@@ -119,7 +152,7 @@
     detailVersion += 1;
     reports = [];
     selected = null;
-    permission = "read";
+    access = { read: false, write: false, delete: false };
     get("token").value = "";
     get("report-list").replaceChildren();
     get("repository-filter").replaceChildren(new Option("All repositories", ""));
@@ -174,6 +207,14 @@
   }
 
   function renderList() {
+    if (!access.read) {
+      reports = [];
+      get("report-list").replaceChildren();
+      get("report-count").textContent = "0";
+      get("list-status").textContent = "";
+      clearDetail();
+      return;
+    }
     const filtered = filterReports(reports, get("repository-filter").value, get("status-filter").value, get("search").value);
     get("report-count").textContent = String(reports.length);
     get("list-status").textContent = `${filtered.length} of ${reports.length} reports`;
@@ -199,6 +240,10 @@
   }
 
   async function loadReports() {
+    if (!access.read) {
+      reset(readAccessMessage(access), true);
+      return;
+    }
     const requestVersion = ++listVersion;
     get("refresh").disabled = true;
     get("list-status").textContent = "Loading reports…";
@@ -218,6 +263,10 @@
       renderList();
     } catch (error) {
       if (error.name !== "AbortError" && requestVersion === listVersion) {
+        if (error.status === 403) {
+          reset("Report-reading access was denied. This tab's reports were cleared; connect with an authorized credential.", true);
+          return;
+        }
         get("list-status").textContent = "Reports could not be refreshed.";
         throw error;
       }
@@ -234,6 +283,10 @@
   };
 
   async function openReport(id) {
+    if (!access.read) {
+      reset(readAccessMessage(access), true);
+      return;
+    }
     const requestVersion = ++detailVersion;
     clearDetail("Loading report…");
     try {
@@ -258,11 +311,15 @@
         get("run-link").href = url;
         get("run-link").hidden = false;
       }
-      get("delete").hidden = permission !== "write";
+      get("delete").hidden = !access.delete;
       renderList();
       get("detail-title").focus({ preventScroll: true });
     } catch (error) {
       if (error.name !== "AbortError" && requestVersion === detailVersion) {
+        if (error.status === 403) {
+          reset("Report-reading access was denied. This tab's reports were cleared; connect with an authorized credential.", true);
+          return;
+        }
         clearDetail("Report could not be loaded");
         notice(error.message, true);
         renderList();
@@ -281,9 +338,11 @@
     get("token").value = "";
     try {
       const session = await client.request("/api/v1/session");
-      if (typeof session?.workspace !== "string" || !["read", "write"].includes(session.permission)) throw new Error("The hub returned an invalid workspace session.");
-      permission = session.permission;
-      get("workspace-label").textContent = `${session.workspace} · ${permission === "write" ? "Read & write" : "Read only"}`;
+      access = sessionAccess(session);
+      if (!access.read) throw new Error(readAccessMessage(access));
+      const identity = typeof session.subject_id === "string" && session.subject_id.trim() ? session.subject_id : "";
+      const role = typeof session.role === "string" && session.role.trim() ? session.role : "";
+      get("workspace-label").textContent = [session.workspace, identity, role, accessLabel(access)].filter(Boolean).join(" · ");
       await loadReports();
       // An aborted list request must never re-open a disconnected workspace.
       if (!get("workspace-label").textContent) return;
@@ -306,10 +365,14 @@
     try { await loadReports(); } catch (error) { if (connected) notice(error.message, true); }
   });
   for (const id of ["search", "repository-filter", "status-filter"]) get(id).addEventListener(id === "search" ? "input" : "change", renderList);
-  get("delete").addEventListener("click", () => { get("delete-confirm").hidden = false; get("delete-cancel").focus(); });
+  get("delete").addEventListener("click", () => {
+    if (!selected || !access.delete) return;
+    get("delete-confirm").hidden = false;
+    get("delete-cancel").focus();
+  });
   get("delete-cancel").addEventListener("click", () => { get("delete-confirm").hidden = true; get("delete").focus(); });
   get("delete-yes").addEventListener("click", async () => {
-    if (!selected || permission !== "write") return;
+    if (!selected || !access.delete) return;
     const id = selected.id;
     const requestVersion = detailVersion;
     get("delete-yes").disabled = true;

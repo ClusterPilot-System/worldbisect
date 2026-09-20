@@ -1,0 +1,11 @@
+{
+  "checked_at": "2026-09-20",
+  "repository": "reviewdog/reviewdog",
+  "upstream_readme_blob_sha": "9e786b03e63c170730ddb0f63269461bd064d576",
+  "action": "create_issue",
+  "title": "docs: explain how to inspect SARIF locations before PR reporting",
+  "published": false,
+  "http_status": 403,
+  "message": "Resource not accessible by integration",
+  "documentation_url": "https://docs.github.com/rest/issues/issues#create-an-issue"
+}
