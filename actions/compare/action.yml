@@ -273,6 +273,7 @@ runs:
         REPORT_ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
         EVIDENCE_ARTIFACT_URL: ${{ steps.upload-evidence.outputs.artifact-url }}
         REPORT_PATH: ${{ steps.run.outputs.report-path }}
+        FAIL_ON: ${{ inputs.fail-on }}
       run: |
         if [[ -z "${GITHUB_STEP_SUMMARY:-}" ]]; then
           exit 0
@@ -296,9 +297,9 @@ runs:
           if [[ -n "${EVIDENCE_ARTIFACT_URL:-}" ]]; then
             echo "- Diagnostic artifact: [$EVIDENCE_ARTIFACT_URL]($EVIDENCE_ARTIFACT_URL)"
           fi
-          echo "- JUnit report: `${RUNNER_TEMP}/worldbisect-action/artifacts/report.junit.xml` (published as a check when write access is available)"
-          echo "- SARIF report: `${RUNNER_TEMP}/worldbisect-action/artifacts/report.sarif` (uploaded to Code Scanning when write access is available)"
-          echo "- Exit policy: `${{ inputs.fail-on }}` (applied after report and evidence publication)"
+          printf -- '- JUnit report: `%s` (published as a check when write access is available)\n' "$RUNNER_TEMP/worldbisect-action/artifacts/report.junit.xml"
+          printf -- '- SARIF report: `%s` (uploaded to Code Scanning when write access is available)\n' "$RUNNER_TEMP/worldbisect-action/artifacts/report.sarif"
+          printf -- '- Exit policy: `%s` (applied after report and evidence publication)\n' "$FAIL_ON"
           echo
           if [[ -n "${REPORT_PATH:-}" && -f "$REPORT_PATH" ]]; then
             cat "$REPORT_PATH"
