@@ -1,7 +1,12 @@
 import importlib.util
+import base64
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import time
 import unittest
 from unittest.mock import patch
 import urllib.parse
@@ -26,7 +31,7 @@ class OIDCPublisherTest(unittest.TestCase):
         for bad in [base.replace("https:", "http:"), base.replace(".com/", ".com.evil.test/"),
                     base.replace("run-actions-1.actions.githubusercontent.com", "127.0.0.1"),
                     base.replace("https://", "https://user:pass@"), base + "&audience=evil",
-                    base + "#fragment", base.replace("/idtoken?", "/other?"),
+                    base + "#fragment", base.replace("/idtoken?", "/bad\\route?"),
                     base.replace(".com/", ".com:444/"), base + "&api-version=1.0"]:
             with self.subTest(url=bad), self.assertRaises(ValueError):
                 publisher.identity_url(bad, audience)
@@ -69,7 +74,80 @@ class OIDCPublisherTest(unittest.TestCase):
         with patch.object(publisher, "opener", return_value=fake):
             self.assertEqual(publisher.publish("https://hub.example", {"status": "UNPROVEN"}, "identity-token"), "a"*32)
         with self.assertRaises(ValueError):
-            publisher.summary.NoRedirect().redirect_request(None, None, 302, "", {}, "https://elsewhere.example")
+            publisher.NoRedirect().redirect_request(None, None, 302, "", {}, "https://elsewhere.example")
+
+    def test_safe_diagnostics_identify_validation_boundary_without_values(self):
+        base = "https://run-actions-1.actions.githubusercontent.com/a/idtoken?api-version=2.0"
+        cases = [
+            ("", "OIDC_URL_MISSING"),
+            ("https://secret.example/a/idtoken?api-version=2.0", "OIDC_URL_HOST"),
+            (base.replace("/idtoken?", "/secret\\path?"), "OIDC_URL_PATH"),
+            (base + "&secret-query=secret-value", "OIDC_URL_QUERY"),
+            (base.replace(".com/", ".com:secret-port/"), "OIDC_URL_FORMAT"),
+        ]
+        for url, expected in cases:
+            with self.subTest(code=expected), self.assertRaises(publisher.PublisherError) as raised:
+                publisher.identity_url(url, "https://hub.example/team")
+            self.assertEqual(publisher.safe_error_code(raised.exception), expected)
+            self.assertNotIn("secret", str(raised.exception))
+        env = dict(ACTIONS_ID_TOKEN_REQUEST_URL=base)
+        for credential, expected in [("", "OIDC_CREDENTIAL_MISSING"), ("x"*8193, "OIDC_CREDENTIAL_SIZE"),
+                                     ("secret credential", "OIDC_CREDENTIAL_FORMAT")]:
+            with self.assertRaises(publisher.PublisherError) as raised:
+                publisher.request_identity("https://hub.example/team", dict(env, ACTIONS_ID_TOKEN_REQUEST_TOKEN=credential))
+            self.assertEqual(publisher.safe_error_code(raised.exception), expected)
+        self.assertEqual(publisher.safe_error_code(ValueError("secret-token-value")), "PUBLISHER_ERROR")
+        self.assertEqual(publisher.safe_error_code(publisher.PublisherError("secret-token-value")), "PUBLISHER_ERROR")
+
+    def test_provider_selected_routes_preserve_the_trusted_origin_boundary(self):
+        for path in ("/a/idtoken", "/a/_apis/token/identity", "/oidc/token", "/nested/provider/route/"):
+            url = "https://run-actions-1.actions.githubusercontent.com" + path + "?api-version=2.0"
+            result = publisher.identity_url(url, "https://hub.example/team")
+            self.assertEqual(urllib.parse.urlsplit(result).path, path)
+            self.assertEqual(urllib.parse.urlsplit(result).hostname, "run-actions-1.actions.githubusercontent.com")
+            for unsafe in (url.replace(".com/", ".com.attacker.example/"), url.replace("https:", "http:"),
+                           url.replace("https://", "https://user:secret@"), url + "#fragment"):
+                with self.subTest(path=path), self.assertRaises(publisher.PublisherError):
+                    publisher.identity_url(unsafe, "https://hub.example/team")
+        for path in ("", "/bad\\path", "/bad path", "/bad\tpath", "/bad\npath", "/bad\x7fpath"):
+            with self.subTest(path=path), self.assertRaises(publisher.PublisherError):
+                publisher.identity_url("https://run-actions-1.actions.githubusercontent.com" + path + "?api-version=2.0",
+                                       "https://hub.example/team")
+
+    def test_live_helper_prints_only_fixed_diagnostic_code(self):
+        env = dict(os.environ, GITHUB_ACTIONS="true", GITHUB_SERVER_URL="https://github.com", GITHUB_EVENT_NAME="push",
+                   RUNNER_ENVIRONMENT="github-hosted", GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY="example/project",
+                   GITHUB_SHA="a"*40, GITHUB_RUN_ID="123", GITHUB_REPOSITORY_ID="123", GITHUB_REPOSITORY_OWNER_ID="456",
+                   GITHUB_WORKFLOW_REF="example/project/.github/workflows/ci.yml@refs/heads/main",
+                   ACTIONS_ID_TOKEN_REQUEST_URL="https://secret-host.example/secret-path?credential=secret-value",
+                   ACTIONS_ID_TOKEN_REQUEST_TOKEN="secret-job-credential")
+        result = subprocess.run([sys.executable, str(Path(__file__).with_name("hub-oidc-e2e.py")), "--report", "not-read.json"],
+                                env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("[OIDC_URL_HOST]", result.stderr)
+        self.assertNotIn("secret", result.stdout + result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_live_contract_diagnostics_emit_only_fixed_flags(self):
+        spec = importlib.util.spec_from_file_location("live_oidc", Path(__file__).with_name("hub-oidc-e2e.py"))
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        env = dict(GITHUB_REPOSITORY="example/project", GITHUB_REPOSITORY_ID="123", GITHUB_REPOSITORY_OWNER_ID="456",
+                   GITHUB_WORKFLOW_REF="example/project/.github/workflows/ci.yml@refs/heads/main", GITHUB_REF="refs/heads/main",
+                   GITHUB_SHA="a"*40, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="1")
+        header = {"alg": "RS256", "typ": "JWT", "kid": "fixture"}
+        token = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=") + ".payload.signature"
+        now = int(time.time())
+        claims = dict(iss="https://token.actions.githubusercontent.com", aud="https://hub.example/team",
+                      repository=env["GITHUB_REPOSITORY"], repository_id="123", repository_owner_id="456",
+                      workflow_ref=env["GITHUB_WORKFLOW_REF"], ref=env["GITHUB_REF"], sha=env["GITHUB_SHA"],
+                      run_id="123", run_attempt="1", ref_type="branch", event_name="push", runner_environment="github-hosted",
+                      jti="fixture-token-id", iat=now-2, nbf=now-2, exp=now+298)
+        self.assertEqual(helper.contract_diagnostics(token, claims, "https://hub.example/team", env), [])
+        claims.update(job_workflow_ref="secret-provider-value", iss="secret-issuer-value", exp="secret-time-value")
+        flags = helper.contract_diagnostics(token, claims, "https://hub.example/team", env)
+        self.assertEqual(set(flags), {"CLAIM_ISS", "CLAIM_JOB_WORKFLOW_REF", "CLAIM_TIME_TYPES"})
+        self.assertNotIn("secret", ",".join(flags))
 
 
 if __name__ == "__main__":

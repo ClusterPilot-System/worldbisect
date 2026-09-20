@@ -11,6 +11,7 @@ isolated copies, and tests which differences explain the failure. Its opt-in
 GitHub Action can save the working inputs automatically.
 
 **Start here:** [First diagnosis](docs/first-diagnosis.md) · [Add it to CI](docs/ci-baselines.md) ·
+[GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis) ·
 [Team report hub preview](docs/team-hub.md) · [Evidence and limits](docs/proof-boundary.md)
 
 ## Get your first diagnosis
@@ -65,8 +66,9 @@ steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     with:
       persist-credentials: false
-  - uses: ClusterPilot-System/worldbisect/actions/ci@main # pin a reviewed commit
+  - uses: ClusterPilot-System/worldbisect@8b054544cf3a8f9febf0b316214981a17817cce8 # action-v1.0.0
     with:
+      mode: ci
       command: '["./ci/check.sh"]'
       files: |
         ci/check.sh
@@ -78,8 +80,11 @@ retrieves compatible inputs from a successful run and tests the differences.
 No manually prepared `good` and `bad` folders are needed.
 
 The example is a job fragment; see the [complete workflow](docs/ci-baselines.md)
-for triggers, optional PR comments, retention and permissions. The companion
-Action is available on `main`, not the older `v1` / `v1.1.1` tags.
+for triggers, optional PR comments, retention and permissions. The published
+[Marketplace Action](https://github.com/marketplace/actions/worldbisect-ci-diagnosis)
+uses the immutable [action-v1.0.0 release](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0).
+Its Action revision is separate from the downloaded, checksum-verified **1.2.0
+diagnosis engine**. See [Action installation and versioning](docs/marketplace.md).
 
 **Select safe files deliberately.** Baselines contain their raw contents and are
 retained for seven days by default. Common credential paths and recognizable
@@ -255,16 +260,17 @@ Missing baselines and non-reproducible executions produce clear next steps.
 Historical host state, packages, services and secrets are not restored.
 
 See the [setup and security guide](docs/ci-baselines.md) and the executable
-[CI baseline demo](.github/workflows/ci-baseline-demo.yml). The companion path is
-available on `main`; pin a reviewed commit containing it. Existing `v1` and
-`v1.1.1` tags retain the original explicit-workspace Action below.
+[CI baseline demo](.github/workflows/ci-baseline-demo.yml). Use the published root
+Action's `mode: ci`, pinned above to the `action-v1.0.0` commit. The `actions/ci`
+companion path remains available. Existing `v1` and `v1.1.1` tags retain the
+original explicit-workspace Action below.
 
-## Try the GitHub Action in 5 minutes
+## Try the explicit-workspace Action
 
-The fastest way to see the causal proof is the public
+Inspect the public
 [`worldbisect-demo`](https://github.com/ClusterPilot-System/worldbisect-demo)
-repository. Open its **Actions** tab, run **WorldBisect demo**, and inspect the
-workflow summary and `worldbisect-diagnostic` artifact. The intentionally bad
+repository's **Actions** tab for **WorldBisect demo** runs, their workflow summary
+and `worldbisect-diagnostic` artifact. The intentionally bad
 workspace differs only in `config.txt`; a successful run reports `PROVEN` and
 identifies that file as the smallest tested cause.
 
@@ -274,7 +280,7 @@ and pin the Action to a reviewed commit or immutable release:
 ```yaml
 - name: Diagnose workspace difference
   id: worldbisect
-  uses: ClusterPilot-System/worldbisect@main # pin a reviewed commit
+  uses: ClusterPilot-System/worldbisect@8b054544cf3a8f9febf0b316214981a17817cce8 # action-v1.0.0
   with:
     command: ./check.sh
     good-workspace: demo/good
@@ -296,7 +302,8 @@ repository:
 ### Action trust pins
 
 The historical `v1` compatibility tag still points at the older 1.1.1 Action.
-Use a reviewed commit from `main` for current defaults and the companion path.
+The current root Action release is `action-v1.0.0`; use its full commit pin above
+for both `ci` and `compare` modes. The downloaded engine remains version 1.2.0.
 The immutable `v1.2.0` binary release tag precedes the follow-up default update;
 when using that tag's Action code, pass the version and archive digest explicitly.
 

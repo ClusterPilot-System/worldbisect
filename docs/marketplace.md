@@ -1,5 +1,12 @@
 # Install the public WorldBisect Action
 
+The Action is published as [WorldBisect CI Diagnosis on GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis).
+The immutable [action-v1.0.0 release](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0)
+points to `8b054544cf3a8f9febf0b316214981a17817cce8`. The separate diagnosis
+engine remains [1.2.0](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.0).
+The [release announcement](https://github.com/ClusterPilot-System/worldbisect/discussions/68)
+links the public distribution.
+
 The repository-root Action provides two explicit modes:
 
 | Mode | Input contract | Result |
@@ -27,6 +34,18 @@ revision before changing the pins; do not delete or rewrite their history.
 
 ## Complete CI example
 
+Pin the published root Action and select CI mode:
+
+```yaml
+- uses: ClusterPilot-System/worldbisect@8b054544cf3a8f9febf0b316214981a17817cce8 # action-v1.0.0
+  with:
+    mode: ci
+    command: '["./examples/ci-baseline/check.sh"]'
+    files: |
+      examples/ci-baseline/check.sh
+      examples/ci-baseline/config.txt
+```
+
 Use the pinned workflow in [the root Action example](examples/root-ci-workflow.yml).
 Its two explicitly selected inputs are the existing
 [`check.sh`](../examples/ci-baseline/check.sh) and
@@ -40,23 +59,22 @@ files are raw contents, not redacted; never select credentials or private inputs
 that must not be stored as workflow artifacts. See [the CI guide](ci-baselines.md)
 for compatibility, retention, fork and reproduction boundaries.
 
-## Marketplace publication status and owner steps
+## Publication record and future releases
 
-**The root interface is prepared for publication. This document does not claim
-that a new Marketplace listing is live.** A verified listing URL and its release
-must be recorded here only after successful publication.
+The Marketplace listing and `action-v1.0.0` release were verified on
+**2026-09-20**. This is an Action distribution release; it does not replace the
+1.2.0 engine binaries or publish the source-built team hub as a managed service.
 
-The repository owner completes these GitHub-controlled steps:
+For a future Action release:
 
-1. Open the root `action.yml` and choose **Draft a release**. Use a new reviewed
-   release; never replace an existing immutable engine release or its assets.
-2. Enable **Publish this Action to the GitHub Marketplace**. If unavailable,
-   the organization owner must review and accept the Marketplace Developer
-   Agreement. Publishing also requires two-factor authentication.
-3. Resolve any name/metadata validation errors. Select **Continuous integration**
-   as the primary category and **Testing** as the secondary category if offered.
-4. Verify the exact pinned baseline-success and later-failure runs, then publish.
-   Record the actual listing URL and release in this document and issue #61.
+1. Select a new reviewed Action revision/version; keep existing immutable tags
+   and engine assets unchanged.
+2. Verify both interface modes and a successful baseline followed by a later
+   failed check against the exact distributed revision.
+3. Publish the Action-specific release with Marketplace publication enabled.
+   Review any changed GitHub agreement, authentication or metadata requirements.
+4. Verify the listing's selected version, release target and pinned examples;
+   update the publication record with the actual new release URL.
 
 GitHub automatically lists the root metadata only, not nested Actions. Release
 publication alone does not prove Marketplace enrollment. Requirements:

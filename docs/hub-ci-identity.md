@@ -14,8 +14,10 @@ available and never gain verified publisher metadata.
 
 Only github.com, GitHub-hosted runners, direct workflow jobs and `push` events on
 one configured branch are supported. Pull request events, `pull_request_target`,
-`workflow_run`, reusable workflows, self-hosted runners, tags and GitHub Enterprise
-Server are rejected. The narrow scope is intentional for this preview.
+`workflow_run`, jobs delegated to a different reusable workflow, self-hosted
+runners, tags and GitHub Enterprise Server are rejected. GitHub may include
+`job_workflow_ref` for a direct job; when present, it must equal the exact trusted
+`workflow_ref`. The narrow scope is intentional for this preview.
 
 Every trust rule pins an audience, exact subject, repository name, immutable
 repository and owner IDs, workflow file and branch. The hub verifies RS256 using
@@ -109,6 +111,13 @@ refuse redirects and ambient proxy configuration. GitHub token request URLs must
 be HTTPS Actions endpoints under `actions.githubusercontent.com`; the audience
 is URL-encoded rather than appended as raw text.
 
+The token request path is supplied by GitHub rather than assumed to end with a
+particular filename. This follows GitHub's [official OIDC client](https://github.com/actions/toolkit/blob/main/packages/core/src/oidc-utils.ts),
+while retaining the hub publisher's HTTPS, provider-host, bounded URL, no-redirect
+and no-proxy restrictions. Failures print only an allowlisted diagnostic category
+such as `OIDC_URL_HOST` or `OIDC_RESPONSE_TOKEN`; URLs, credentials, response bodies
+and arbitrary exception text remain excluded from logs.
+
 ## Limits, revocation and recovery
 
 There are at most 50 trust rules. Token verification has two concurrent slots;
@@ -169,6 +178,13 @@ that workflow's result for live-provider compatibility. It publishes no token or
 test artifact and is never triggered by a pull request. Its temporary trust setup
 is not a production auto-enrollment mechanism. Neither test suite constitutes a
 public deployment or an independent security audit.
+
+The [September 20, 2026 live compatibility run](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35529451078)
+passed with an actual GitHub token, persisted origin metadata and replay rejection
+after restarting the hub. That temporary, explicitly authorized test-branch run
+also identified two provider compatibility details: the request route is opaque,
+and direct jobs can carry `job_workflow_ref` equal to `workflow_ref`. The permanent
+workflow remains restricted to main-branch pushes.
 
 GitHub documents the token fields, audience customization, immutable subjects and
 job permissions in its [OIDC reference](https://docs.github.com/en/actions/reference/security/oidc).

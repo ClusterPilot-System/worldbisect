@@ -24,6 +24,46 @@ publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 
 
+def contract_diagnostics(token, claims, audience, env):
+    """Finite contract flags only; never print provider values or decoded claims."""
+    encoded = token.split(".")[0]
+    header = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    flags = []
+    def check(code, condition):
+        if not condition:
+            flags.append(code)
+    check("HEADER_ALGORITHM", header.get("alg") == "RS256")
+    check("HEADER_TYPE", header.get("typ") == "JWT")
+    check("HEADER_KEY_ID", isinstance(header.get("kid"), str) and 1 <= len(header["kid"]) <= 128)
+    check("HEADER_FIELDS", set(header) <= {"alg", "typ", "kid", "x5t", "x5t#S256"})
+    expected = {"iss": "https://token.actions.githubusercontent.com", "aud": audience,
+                "repository": env["GITHUB_REPOSITORY"], "repository_id": env["GITHUB_REPOSITORY_ID"],
+                "repository_owner_id": env["GITHUB_REPOSITORY_OWNER_ID"], "workflow_ref": env["GITHUB_WORKFLOW_REF"],
+                "ref": env["GITHUB_REF"], "sha": env["GITHUB_SHA"], "run_id": env["GITHUB_RUN_ID"],
+                "run_attempt": env["GITHUB_RUN_ATTEMPT"], "ref_type": "branch", "event_name": "push",
+                "runner_environment": "github-hosted"}
+    # Names come exclusively from the fixed expected dictionary, not token keys.
+    for name, value in expected.items():
+        check("CLAIM_" + name.upper(), claims.get(name) == value)
+    for name in ("head_ref", "base_ref"):
+        check("CLAIM_" + name.upper(), claims.get(name, "") == "")
+    check("CLAIM_JOB_WORKFLOW_REF", claims.get("job_workflow_ref", "") in ("", env["GITHUB_WORKFLOW_REF"]))
+    identifier = claims.get("jti")
+    check("CLAIM_JTI", isinstance(identifier, str) and 8 <= len(identifier) <= 128 and not any(c.isspace() for c in identifier))
+    numeric = all(type(claims.get(k)) is int for k in ("iat", "nbf", "exp"))
+    check("CLAIM_TIME_TYPES", numeric)
+    if numeric:
+        now = int(time.time())
+        issued, before, expires = (claims[k] for k in ("iat", "nbf", "exp"))
+        check("CLAIM_TIME_POSITIVE", issued > 0 and before > 0)
+        check("CLAIM_TIME_EXPIRED", expires > now)
+        check("CLAIM_TIME_FUTURE", issued <= now+30 and before <= now+30)
+        check("CLAIM_TIME_ORDER", before <= issued+30 and expires > issued)
+        check("CLAIM_TIME_LIFETIME", expires-issued <= 600)
+        check("CLAIM_TIME_AGE", issued >= now-600)
+    return flags
+
+
 def start(binary, root):
     log = (root / "server.log").open("w+")
     process = subprocess.Popen([binary, "serve", "--config", str(root / "config.json"),
@@ -101,7 +141,12 @@ def main():
         process, log, origin = start(binary, root)
         try:
             print("live OIDC E2E: verifying issuer signature and configured origin", flush=True)
-            identifier = publisher.publish(origin, payload, token)
+            try:
+                identifier = publisher.publish(origin, payload, token)
+            except publisher.PublisherError:
+                flags = contract_diagnostics(token, claims, audience, os.environ)
+                print("live OIDC E2E contract flags: " + ",".join(flags or ["NO_CLAIM_MISMATCH"]), flush=True)
+                raise
             request = urllib.request.Request(origin + "/api/v1/reports/" + identifier,
                                              headers={"Authorization": "Bearer " + reader})
             with publisher.opener().open(request, timeout=5) as response:
@@ -129,6 +174,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
+    except Exception as error:
         # Do not include provider responses, token claims or subprocess output.
-        raise SystemExit("live OIDC E2E failed; inspect job permissions and the fixed trust boundary") from None
+        raise SystemExit("live OIDC E2E failed [" + publisher.safe_error_code(error) +
+                         "]; inspect job permissions and the fixed trust boundary") from None

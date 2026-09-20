@@ -72,6 +72,17 @@ func TestCIVerifiesSignatureAndStrictClaims(t *testing.T) {
 	if _, ok := matchingPublisher(ciConfig(p), got); !ok {
 		t.Fatal("valid binding did not match")
 	}
+	// Observed in GitHub's real token for a direct main-push job: the optional
+	// job_workflow_ref names the exact same workflow as workflow_ref.
+	directJob := claims
+	directJob.JobWorkflowRef = directJob.WorkflowRef
+	verifiedDirect, err := v.verify(context.Background(), signedCI(t, key, ciHeader, jsonBytes(t, directJob)))
+	if err != nil {
+		t.Fatalf("same-workflow job identity rejected: %v", err)
+	}
+	if _, ok := matchingPublisher(ciConfig(p), verifiedDirect); !ok {
+		t.Fatal("direct job lost exact trust binding")
+	}
 	for name, mutate := range map[string]func(*ciClaims){
 		"issuer":         func(c *ciClaims) { c.Issuer = "https://attacker.invalid" },
 		"expired":        func(c *ciClaims) { c.Expires = time.Now().Unix() - 1 },

@@ -14,6 +14,17 @@ The released product is a Linux CLI and GitHub Actions integration. The separate
 experimental self-hosted preview. A hosted SaaS service, paid plans and production
 service guarantees are not currently available.
 
+The [access and CI identity extension](https://github.com/ClusterPilot-System/worldbisect/pull/67)
+adds scoped subjects, audit/recovery tooling and an optional OIDC verifier.
+Configured CI-origin verification is distinct from proof: reported diagnoses
+remain client-reported, and ordinary token uploads do not verify a GitHub origin.
+The [live GitHub verification run](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35529451078)
+passed the real identity upload, stored-report check and restart replay rejection
+in an isolated test hub. This is evidence for the narrow configured identity
+flow, not a public deployment or independent proof verification.
+Use the [reviewed About settings and development announcement](launch-kit.md#reviewed-repository-about-recommendation)
+for the next own-repository discovery update.
+
 A useful next adoption target is **five voluntary pilot users** who have a repeatable Linux
 check and can deliberately select non-secret input files. A pilot should try a
 successful baseline followed by a failure and report whether the diagnosis helps.
@@ -37,7 +48,8 @@ rules before any later submission.
 
 - [actions/runner #2418, comment 5702898846](https://github.com/actions/runner/issues/2418#issuecomment-5702898846): exists under `JossefMo1`; includes public CI failure evidence and a tested dispatch-input workaround. Do not duplicate it or describe a runner patch as verified.
 - [nektos/act #900, comment 5703159971](https://github.com/nektos/act/issues/900#issuecomment-5703159971): exists under `JossefMo1`; reports the v0.2.89 Linux host-execution retest and its limits. This does not validate the original macOS/Docker/Terraform setup.
-- [WorldBisect preview update in #58](https://github.com/ClusterPilot-System/worldbisect/issues/58#issuecomment-5750580641): published by `JossefMo1` on September 20, with source setup, implementation and validation links. It asks which two repositories/checks a pilot would review together. This is an announcement, not evidence of customer adoption. The ongoing [feedback guide](feedback.md) and [getting-started form](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml) replace the launch thread as intake once merged.
+- [WorldBisect preview update in #58](https://github.com/ClusterPilot-System/worldbisect/issues/58#issuecomment-5750580641): published by `JossefMo1` on September 20, with source setup, implementation and validation links. It asks which two repositories/checks a pilot would review together. This is an announcement, not evidence of customer adoption. The launch issue is now closed; the merged [feedback guide](feedback.md) and [getting-started form](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml) are the ongoing intake routes.
+- [Action release announcement #68](https://github.com/ClusterPilot-System/worldbisect/discussions/68): the repository's published announcement for `action-v1.0.0`. Check this thread before posting another release announcement.
 
 GitHub's repository API reports `has_discussions: true`. The [Discussions root](https://github.com/ClusterPilot-System/worldbisect/discussions)
 is the existing route for open-ended questions; no unverified category URL or
@@ -49,27 +61,28 @@ general external write access. A single new attempt to create the useful reviewd
 documentation issue on September 20 returned the same HTTP 403. No reviewdog
 issue or PR was published; the complete proposal is retained in the repository.
 
-## Marketplace discovery gap
+## Root Action distribution and Marketplace
 
-The automatic-baseline Action is in `actions/ci`; the root `action.yml` still
-requires explicit good and bad workspaces. GitHub automatically lists only the
-root Action metadata file, so a Marketplace listing does not automatically expose
-the companion Action. See [GitHub's publication requirements](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace).
+The compatible root interface is available on `main` after merged [PR #65](https://github.com/ClusterPilot-System/worldbisect/pull/65)
+([merge revision](https://github.com/ClusterPilot-System/worldbisect/commit/8b054544cf3a8f9febf0b316214981a17817cce8)):
+`mode: ci` exposes automatic baselines while the default `compare` mode preserves
+existing explicit-workspace consumers. The companion remains available in
+`actions/ci`. Use a reviewed revision containing the adapter and preserve its
+pinned implementation references; older release tags do not acquire the new
+interface automatically.
 
-Track the bounded work in [issue #61](https://github.com/ClusterPilot-System/worldbisect/issues/61):
+The [WorldBisect CI Diagnosis listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis)
+is published and was verified on September 20. Its immutable
+[action-v1.0.0 release](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0)
+points to `8b054544cf3a8f9febf0b316214981a17817cce8`; the latest diagnosis engine
+remains version 1.2.0. [Installation and versioning](../marketplace.md) distinguish
+the Action and engine releases and retain the reviewed full-commit pin.
 
-1. Choose a separately released companion Action repository or a deliberately
-   compatible root interface; preserve existing consumers.
-2. Verify a successful baseline and a later diagnosis using the exact distributed
-   version, with the current trust, retention and secret-handling boundaries.
-3. Prepare accurate metadata and a pinned full-workflow example. The repository
-   owner must complete any outstanding Marketplace Developer Agreement and
-   two-factor-authentication requirements before publication.
-4. Record an actual published listing URL only after publication succeeds.
-
-Marketplace discovery is a better direct promotion opportunity than mentioning
-WorldBisect in unrelated bug reports. This plan does not assert that a new
-Marketplace listing has been published.
+The distribution work is recorded in completed [issue #61](https://github.com/ClusterPilot-System/worldbisect/issues/61).
+For future Action releases, verify both modes and the exact successful-baseline /
+later-failure pair, preserve implementation references, and check the Marketplace
+version after publication. An existing listing does not by itself validate a
+future release or establish customer adoption.
 
 ## Proposed follow-up milestones
 
@@ -78,7 +91,7 @@ does not start background outreach or a recurring campaign.
 
 | Milestone | Deliverable | Evidence of progress |
 | --- | --- | --- |
-| First useful result | Offer the [verified-release demo](../first-diagnosis.md), a bounded CI example and clear unsupported cases. Resolve the Marketplace distribution design. Invite interested people through our own project/profile channels to try one real check. | Exact demo revision, successful public run, honest installation instructions and a public feedback route. Count only people who explicitly agree to try it. |
+| First useful result | Offer the [verified-release demo](../first-diagnosis.md), the published Marketplace Action and clear unsupported cases. Invite interested people through our own project/profile channels to try one real check. | Exact demo revision, successful public run, honest installation instructions and a public feedback route. Count only people who explicitly agree to try it. |
 | First two pilots | Help volunteers select safe files, capture a baseline and interpret one failure or explicit non-reproduction result. Offer the locally verified reviewdog example when file diagnostics fit the pilot's workflow. | Two completed setup attempts, documented friction and test results. Do not count a signup as a successful diagnosis. |
 | First evidenced improvement | Address the most common onboarding problem. Publish a case study only with permission and sanitized evidence. Offer the verified reviewdog example if it adds value; Jo may personally submit to Show HN. | Shipped onboarding improvement, reproducible before/after example, and replies to relevant community questions. |
 | Five pilot attempts | Ask which result changed the developer's next action and whether they would use the tool again. Rank product work from observed needs. | Pilot attempts, successful baselines, useful diagnoses, explicit inconclusive cases, repeat use and volunteered feedback. Report the actual counts even when below target. |

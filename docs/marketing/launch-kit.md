@@ -3,8 +3,13 @@
 Draft copy for maintainer review; publication status must be checked before use.
 The release claims below are grounded in the documented 1.2.0 engine and CI
 integration. The separate, source-built team report hub preview is available on
-`main` following [PR #62](https://github.com/ClusterPilot-System/worldbisect/pull/62).
+`main` following [PR #62](https://github.com/ClusterPilot-System/worldbisect/pull/62),
+with access, audit, CI identity and recovery work in [PR #67](https://github.com/ClusterPilot-System/worldbisect/pull/67).
 It is not part of the published 1.2.0 binary or a managed SaaS offering.
+The root Action is separately published as [action-v1.0.0](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0)
+in [GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis).
+The published [Action announcement #68](https://github.com/ClusterPilot-System/worldbisect/discussions/68)
+should be checked before posting another update.
 
 ## Positioning and audience
 
@@ -50,35 +55,45 @@ https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/first-diagnosi
 
 ## GitHub announcement draft
 
-**Title: Yesterday green. Today red. Get a tested explanation.**
+Use this as a development update about `main`, not as new contents of the
+existing 1.2.0 binary release.
 
-WorldBisect helps investigate a repeatable Linux check that used to pass and
-now fails. The opt-in CI Action retains explicitly selected inputs from a
-successful default-branch run, then compares them with a later failing run.
+**Title: Yesterday green. Today red. Try a failure you can actually investigate.**
 
-The workflow summary answers four questions:
+WorldBisect now has a three-command demo using its checksum-verified 1.2.0
+release. It runs real proof checks against a deliberately changed configuration
+file. No account, Go installation or root access needed.
 
-- **What changed?** The supported input difference found by the analysis.
-- **What was tested?** The reruns and interventions actually executed.
-- **How strong is the evidence?** A bounded proof status, not a confidence guess.
-- **What next?** A concrete input to inspect or an explanation of what prevented diagnosis.
+[Try your first diagnosis](https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/first-diagnosis.md).
+For CI, the root Action is now on [GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis),
+with automatic baselines available through `mode: ci`.
 
-A missing baseline or a non-reproducible failure produces an explicit result.
-The original failed check remains failed.
+Using reviewdog? Our [tested integration](https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/integrations/reviewdog.md)
+turns a single proven file cause into a file-level diagnostic. It preserves the
+evidence boundary; its line anchor does not claim the faulty line.
 
-[Controlled integration checks](https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/integration-validation.md)
-cover Node.js, GCC and the pinned ItsDangerous test suite. These are deliberately
-introduced regressions, not customer incidents or measured time savings.
+Teams can also try the separate, source-built [report hub preview](https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/team-hub.md).
+Execution stays in CI, and diagnosis confidence remains client-reported.
 
-Start with [one controlled diagnosis](https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/first-diagnosis.md),
-then follow the [CI setup guide](https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/ci-baselines.md).
-List only safe files: baseline artifacts contain their raw contents and default
-to seven days of retention. Historical packages, services and host state are
-not restored.
+Which repeatable check would you try? [Share where you got stuck](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml).
+If it helps, a star helps others discover it.
 
-Tell us [which check you tried and where you got stuck](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml).
-A sanitized reproduction or a clear report of where setup failed is especially
-useful. If the project helps you, a star helps other developers discover it.
+## Reviewed repository About recommendation
+
+These settings were saved and verified through GitHub's repository API on
+September 20, 2026. The homepage points at the executable first result, with
+topics covering the tested CI and reviewdog integrations:
+
+```json
+{
+  "description": "Your CI passed yesterday. Today it fails. Test selected input changes, reproduce the failure, and get a useful next step.",
+  "homepage": "https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/first-diagnosis.md",
+  "topics": [
+    "github-actions", "debugging", "linux",
+    "go", "diagnostics", "causal-analysis", "causal-inference", "sarif", "reviewdog"
+  ]
+}
+```
 
 ## Current claims and limits
 
@@ -86,18 +101,24 @@ useful. If the project helps you, a star helps other developers discover it.
 | --- | --- |
 | Open-source Linux diagnosis engine | [README](../../README.md) and [Apache 2.0 license](../../LICENSE); AMD64 native capture and ARM64 portable fallback have different capture coverage. |
 | CI can reuse working inputs automatically | [CI guide](../ci-baselines.md); opt-in file selection, a compatible prior successful workflow, and reproducibility on the current runner are required. |
+| The root Action is published in GitHub Marketplace | [Verified listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis), immutable [action-v1.0.0](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0) at `8b054544cf3a8f9febf0b316214981a17817cce8`. Explicit `mode: ci` preserves default `compare` compatibility. The downloaded engine remains 1.2.0. |
 | Tested causes have an explicit evidence level | [Proof boundary](../proof-boundary.md); `PROVEN` applies to the selected factors and tested model, not every possible historical cause. |
 | An authenticated API and dashboard exist | [API guide](../api.md); the existing daemon is self-hosted, and remote execution is disabled by default. This does not establish a hosted SaaS offering. |
 | Real runtimes and an upstream test suite are exercised | [Integration evidence](../integration-validation.md); controlled regressions, with no claim of upstream endorsement or external customer adoption. |
-| A team report hub preview is available from source | [Setup and boundaries](../team-hub.md), merged in [PR #62](https://github.com/ClusterPilot-System/worldbisect/pull/62). Workspace-scoped credentials and client-reported summaries; no hosted service, billing, SSO, production-readiness or service-level agreement claim. |
+| A team report hub preview is available from source | [Setup and boundaries](../team-hub.md), [access](../hub-access.md) and [recovery](../hub-operations.md). Scoped identities, audit and recovery tooling; no hosted service, billing, SSO, production-readiness or service-level agreement claim. |
+| Optional CI identity verification has a separate trust boundary | [OIDC contract](../hub-ci-identity.md) and successful [live GitHub verification run](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35529451078). The isolated test verified the real publisher identity, stored report and replay rejection after restart. Ordinary opaque-token uploads do not receive verified CI identity; proof remains client-reported. |
 
 ## Preview messaging and a useful pilot
 
 The source-built preview message is: “Review CI diagnosis summaries from several
 repositories in one workspace while checks and proof experiments run in your
 CI environment.” The dashboard displays client-reported evidence and does not
-independently verify the experiments or CI identity. Label it as an experimental
-self-hosted preview, not a generally available SaaS launch.
+independently verify the experiments or causal proof. Opt-in OIDC verification
+authenticates a configured CI publisher's origin; it does not make the submitted
+diagnosis true. Ordinary opaque-token uploads do not verify CI origin. The
+[live GitHub verification](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35529451078)
+passed in an isolated test hub; it does not establish a public deployment. Label the hub
+as an experimental self-hosted preview, not a generally available SaaS launch.
 
 For an opt-in pilot, measure time to first successful setup, baseline
 availability, reproducible pass/fail pairs, useful diagnoses and diagnostic
@@ -108,7 +129,7 @@ captures or customer data to collect these metrics.
 Before publishing, verify release/setup links and any referenced workflow run,
 then check for an existing announcement. Link the ongoing [feedback guide](feedback.md)
 or getting-started form for new reports. The [launch thread #58](https://github.com/ClusterPilot-System/worldbisect/issues/58)
-is historical context and can be closed once the evergreen intake is merged.
+is closed historical context; the evergreen intake is already merged.
 External issues deserve a concrete
 reproduction or fix relevant to that project; a product link belongs only where
 it explains the evidence or helps reproduce the issue.

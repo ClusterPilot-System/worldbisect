@@ -211,7 +211,10 @@ func (v *ciVerifier) verify(ctx context.Context, token string) (ciClaims, error)
 	if claims.Issuer != githubIssuer || claims.IssuedAt <= 0 || claims.NotBefore <= 0 || claims.Expires <= now || claims.IssuedAt > now+30 || claims.NotBefore > now+30 || claims.NotBefore > claims.IssuedAt+30 || claims.Expires <= claims.IssuedAt || claims.Expires-claims.IssuedAt > 600 || claims.IssuedAt < now-600 {
 		return claims, errors.New("invalid issuer or token lifetime")
 	}
-	if len(claims.ID) < 8 || len(claims.ID) > 128 || strings.ContainsAny(claims.ID, " \t\r\n") || claims.EventName != "push" || claims.RefType != "branch" || claims.RunnerEnvironment != "github-hosted" || claims.HeadRef != "" || claims.BaseRef != "" || claims.JobWorkflowRef != "" || !commitPattern.MatchString(claims.SHA) || !decimalID.MatchString(claims.RunID) || !decimalID.MatchString(claims.RunAttempt) {
+	// GitHub may include job_workflow_ref for a direct job. It must identify the
+	// same workflow already pinned by the trust rule; a different callee is not
+	// authorized by the caller's workflow_ref alone.
+	if len(claims.ID) < 8 || len(claims.ID) > 128 || strings.ContainsAny(claims.ID, " \t\r\n") || claims.EventName != "push" || claims.RefType != "branch" || claims.RunnerEnvironment != "github-hosted" || claims.HeadRef != "" || claims.BaseRef != "" || (claims.JobWorkflowRef != "" && claims.JobWorkflowRef != claims.WorkflowRef) || !commitPattern.MatchString(claims.SHA) || !decimalID.MatchString(claims.RunID) || !decimalID.MatchString(claims.RunAttempt) {
 		return claims, errors.New("unsupported workflow identity")
 	}
 	signature, err := base64.RawURLEncoding.Strict().DecodeString(parts[2])
