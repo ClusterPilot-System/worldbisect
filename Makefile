@@ -6,9 +6,19 @@ GO ?= go
 PYTHON ?= python3
 SOURCE_DATE_EPOCH ?= 0
 
-.PHONY: all build clean fmt check test test-race coverage e2e release install
+.PHONY: all build build-hub test-hub clean fmt check test test-race coverage e2e release install
 
 all: build
+
+build-hub:
+	mkdir -p bin
+	CGO_ENABLED=0 $(GO) build -trimpath -o bin/worldbisect-hub ./cmd/worldbisect-hub
+
+test-hub:
+	$(GO) test -race ./internal/hub ./cmd/worldbisect-hub ./web/hub -count=1
+	$(PYTHON) -m unittest discover -s scripts -p 'test_publish_hub_report.py'
+	node --check web/hub/app.js
+	node --test web/hub/app.test.js
 
 build:
 	mkdir -p bin
