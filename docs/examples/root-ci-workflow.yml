@@ -1,0 +1,28 @@
+name: Configuration diagnosis
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Copy these two example files from WorldBisect, or select your own safe check.
+      - uses: ClusterPilot-System/worldbisect@2b1820928573e93e725583c64dacaac153c51439
+        with:
+          mode: ci
+          command: '["./examples/ci-baseline/check.sh"]'
+          files: |
+            examples/ci-baseline/check.sh
+            examples/ci-baseline/config.txt
+          baseline-key: configuration-check
+          retention-days: '7'
+          timeout-seconds: '60'
+          diagnostic-timeout-seconds: '180'
