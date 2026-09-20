@@ -3,18 +3,20 @@
 Draft copy for maintainer review; publication status must be checked before use.
 Engine [1.2.1 is published](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.1).
 The [updated demo passed](../first-diagnosis.md) with the downloaded 1.2.1
-AMD64 binary: `PROVEN`, `config.txt`, nine experiments. The copy below prepares
-the `action-v1.0.1` announcement; publication of that Action is still pending.
-Use the [publication record](../marketplace.md) to check its status.
+AMD64 binary: `PROVEN`, `config.txt`, nine experiments. The published Action
+`action-v1.0.1` also passed a [real baseline-to-failure run](../integration-validation.md#verify-actual-github-artifact-reuse).
+The [publication record](../marketplace.md) contains the exact revision and
+version-specific Marketplace link.
 The separate, source-built team report hub preview is available on
 `main` following [PR #62](https://github.com/ClusterPilot-System/worldbisect/pull/62),
 with access, audit, CI identity and recovery work in [PR #67](https://github.com/ClusterPilot-System/worldbisect/pull/67).
 The 1.2.1 binary packages contain the CLI and diagnostic daemon. The hub still
 requires a source build and is not a managed SaaS offering.
-The root Action is separately published as [action-v1.0.0](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0)
-in [GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis).
-The published [Action announcement #68](https://github.com/ClusterPilot-System/worldbisect/discussions/68)
-should be checked before posting another update.
+The root Action is separately published as [action-v1.0.1](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.1)
+in [GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1).
+The original [Action announcement #68](https://github.com/ClusterPilot-System/worldbisect/discussions/68)
+now has a published [1.0.1 release update](https://github.com/ClusterPilot-System/worldbisect/discussions/68#discussioncomment-18530792).
+Check that existing update before posting more announcement copy.
 
 ## Positioning and audience
 
@@ -60,9 +62,9 @@ https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/first-diagnosi
 
 ## GitHub announcement draft
 
-The 1.2.1 demo is verified. Publish this draft only after immutable Action
-`action-v1.0.1` is also published and verified. Existing 1.2.0 and Action 1.0.0
-releases remain unchanged.
+The 1.2.1 demo and immutable Action `action-v1.0.1` are published and verified.
+This remains draft announcement text; check the existing thread before posting.
+Existing 1.2.0 and Action 1.0.0 releases remain unchanged.
 
 **Title: Yesterday green. Today red. Try a failure you can actually investigate.**
 
@@ -71,7 +73,7 @@ release. It runs real proof checks against a deliberately changed configuration
 file. No account, Go installation or root access needed.
 
 [Try your first diagnosis](https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/first-diagnosis.md).
-For CI, the root Action is now on [GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis),
+For CI, the root Action is now on [GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1),
 with automatic baselines available through `mode: ci`. Action `action-v1.0.1`
 selects engine 1.2.1; the Action and engine have separate release versions.
 
@@ -108,12 +110,12 @@ topics covering the tested CI and reviewdog integrations:
 | --- | --- |
 | Open-source Linux diagnosis engine | [README](../../README.md) and [Apache 2.0 license](../../LICENSE); AMD64 native capture and ARM64 portable fallback have different capture coverage. |
 | CI can reuse working inputs automatically | [CI guide](../ci-baselines.md); opt-in file selection, a compatible prior successful workflow, and reproducibility on the current runner are required. |
-| The root Action is published in GitHub Marketplace | [Verified listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis), immutable [action-v1.0.0](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0) at `8b054544cf3a8f9febf0b316214981a17817cce8`. Explicit `mode: ci` preserves default `compare` compatibility. That historical Action defaults to engine 1.2.0. The planned `action-v1.0.1` update targets engine 1.2.1; its publication and validation must be verified separately. |
+| The root Action is published in GitHub Marketplace | [Verified version-specific listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1), immutable [action-v1.0.1](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.1) at `db6b33f891779cf8e636393cf0b6afb242f6a282`, downloading engine 1.2.1. Explicit `mode: ci` preserves default `compare` compatibility; [cross-run proof](../integration-validation.md#verify-actual-github-artifact-reuse) preserves the failed check. The generic Marketplace latest button selects the engine release; share the version-specific link. |
 | Tested causes have an explicit evidence level | [Proof boundary](../proof-boundary.md); `PROVEN` applies to the selected factors and tested model, not every possible historical cause. |
 | An authenticated API and dashboard exist | [API guide](../api.md); the existing daemon is self-hosted, and remote execution is disabled by default. This does not establish a hosted SaaS offering. |
 | Real runtimes and an upstream test suite are exercised | [Integration evidence](../integration-validation.md); controlled regressions, with no claim of upstream endorsement or external customer adoption. |
 | A team report hub preview is available from source | [Setup and boundaries](../team-hub.md), [access](../hub-access.md) and [recovery](../hub-operations.md). Scoped identities, audit and recovery tooling; no hosted service, billing, SSO, production-readiness or service-level agreement claim. |
-| Optional CI identity verification has a separate trust boundary | [OIDC contract](../hub-ci-identity.md) and successful [live GitHub verification run](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35529451078). The isolated test verified the real publisher identity, stored report and replay rejection after restart. Ordinary opaque-token uploads do not receive verified CI identity; proof remains client-reported. |
+| Optional CI identity verification has a separate trust boundary | [OIDC contract](../hub-ci-identity.md) and successful [live GitHub verification run at the Action release revision](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532408886). The isolated test verified the real publisher identity, stored report and replay rejection after restart. Ordinary opaque-token uploads do not receive verified CI identity; proof remains client-reported. |
 
 ## Preview messaging and a useful pilot
 

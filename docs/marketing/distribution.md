@@ -50,7 +50,7 @@ rules before any later submission.
 - [nektos/act #900, comment 5703159971](https://github.com/nektos/act/issues/900#issuecomment-5703159971): exists under `JossefMo1`; reports the v0.2.89 Linux host-execution retest and its limits. This does not validate the original macOS/Docker/Terraform setup.
 - [reviewdog #2821](https://github.com/reviewdog/reviewdog/issues/2821): opened by `JossefMo1` on September 20 with measured SARIF path/filter behavior, a generic README patch and project/AI-assistance disclosure. The issue is open; the patch awaits maintainer feedback. No upstream PR or endorsement is claimed.
 - [WorldBisect preview update in #58](https://github.com/ClusterPilot-System/worldbisect/issues/58#issuecomment-5750580641): published by `JossefMo1` on September 20, with source setup, implementation and validation links. It asks which two repositories/checks a pilot would review together. This is an announcement, not evidence of customer adoption. The launch issue is now closed; the merged [feedback guide](feedback.md) and [getting-started form](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml) are the ongoing intake routes.
-- [Action release announcement #68](https://github.com/ClusterPilot-System/worldbisect/discussions/68): the repository's published announcement for `action-v1.0.0`. Check this thread before posting another release announcement.
+- [Action release announcement #68](https://github.com/ClusterPilot-System/worldbisect/discussions/68): the original announcement for `action-v1.0.0` now includes one verified [1.0.1 release update](https://github.com/ClusterPilot-System/worldbisect/discussions/68#discussioncomment-18530792). Use the existing thread; no duplicate announcement is needed.
 
 GitHub's repository API reports `has_discussions: true`. The [Discussions root](https://github.com/ClusterPilot-System/worldbisect/discussions)
 is the existing route for open-ended questions; no unverified category URL or
@@ -77,14 +77,19 @@ existing explicit-workspace consumers. The companion remains available in
 pinned implementation references; older release tags do not acquire the new
 interface automatically.
 
-The [WorldBisect CI Diagnosis listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis)
+The [WorldBisect CI Diagnosis listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1)
 is published and was verified on September 20. Its immutable
 [action-v1.0.0 release](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.0)
 points to `8b054544cf3a8f9febf0b316214981a17817cce8` and still defaults to
 engine 1.2.0. Engine [1.2.1 is now published](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.1).
-The next immutable Action, `action-v1.0.1`, is planned to select that engine.
+The immutable [action-v1.0.1 release](https://github.com/ClusterPilot-System/worldbisect/releases/tag/action-v1.0.1)
+is now published at `db6b33f891779cf8e636393cf0b6afb242f6a282` and selects engine
+1.2.1. Share the version-specific Marketplace link above: it selects Action
+1.0.1, while the generic latest button currently selects the engine release.
 The [updated 1.2.1 demo is verified](../first-diagnosis.md): `PROVEN`,
-`config.txt`, nine experiments. The new Action publication remains pending.
+`config.txt`, nine experiments. The exact Action revision also passed the
+[real baseline-to-failure check](../integration-validation.md#verify-actual-github-artifact-reuse),
+including a verified engine download and preserved original failure.
 [Installation and versioning](../marketplace.md) distinguish the versions and
 record the release status; existing tags and assets must remain unchanged.
 The 1.2.1 binary packages still contain the CLI and daemon only. The team hub

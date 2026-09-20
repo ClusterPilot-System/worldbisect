@@ -16,13 +16,13 @@ The repository-root Action now also exposes this workflow with `mode: ci`.
 Use the [complete pinned root example](examples/root-ci-workflow.yml) and see
 [distribution and Marketplace status](marketplace.md). Existing root consumers
 keep the explicit-workspace `compare` mode by default. The example below uses
-the planned immutable `action-v1.0.1` root tag and selects CI mode explicitly.
+the full commit pin for published `action-v1.0.1` and selects CI mode explicitly.
 
 The companion Action is available from the repository revision containing
 `actions/ci`. Existing `v1`/`v1.1.1` Action tags do not include this new path.
-The updated Action selects and checksum-verifies engine 1.2.1. Publication of
-`action-v1.0.1` is still planned; check the linked distribution status before use.
-For a full commit pin, resolve and review the final published Action revision.
+Action `action-v1.0.1` selects and checksum-verifies engine 1.2.1. Use the
+reviewed full commit pin below or the [version-specific Marketplace listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1);
+the generic latest button currently selects the separate engine release.
 
 ```yaml
 name: Configuration check
@@ -42,7 +42,7 @@ jobs:
         with:
           persist-credentials: false
       # Install required interpreters/tools here, before WorldBisect.
-      - uses: ClusterPilot-System/worldbisect@action-v1.0.1 # immutable Action release
+      - uses: ClusterPilot-System/worldbisect@db6b33f891779cf8e636393cf0b6afb242f6a282 # action-v1.0.1
         with:
           mode: ci
           command: '["./ci/check.sh"]'
