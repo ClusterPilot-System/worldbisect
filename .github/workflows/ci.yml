@@ -46,9 +46,21 @@ jobs:
       - name: Team hub publisher and browser scripts
         run: |
           python3 -m unittest discover -s scripts -p 'test_publish_hub_report.py'
+          python3 -m unittest discover -s scripts -p 'test_publish_hub_oidc.py'
           node --check web/hub/app.js
           node --test web/hub/app.test.js
           make build-hub
+      - name: Install pinned recovery test tools
+        env:
+          GOBIN: ${{ runner.temp }}/worldbisect-recovery-tools
+        run: |
+          go install filippo.io/age/cmd/age@v1.3.2
+          go install filippo.io/age/cmd/age-keygen@v1.3.2
+          echo "$GOBIN" >> "$GITHUB_PATH"
+      - name: Encrypted backup and recovery checks
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_hub_backup.py' -v
+          python3 scripts/hub-backup-e2e.py --binary bin/worldbisect-hub
       - name: End-to-end
         env:
           WORLDBISECT_E2E_RACE: "1"

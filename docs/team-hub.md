@@ -5,6 +5,12 @@ client-reported summaries; checks and proof experiments still run in your CI.
 This is a source-built, self-hosted preview, not a managed SaaS or a production
 tenant-isolation guarantee. The stable CLI and execution daemon are unchanged.
 
+The access extension adds [named identities, scopes, expiry, reload and audit](hub-access.md),
+[verified GitHub Actions publisher identity](hub-ci-identity.md), and
+[encrypted backup, recovery and operational runbooks](hub-operations.md).
+The guide below remains the basic opaque-token path. Verified publisher identity
+does not independently verify a submitted diagnosis.
+
 ## Start locally
 
 Use Linux and the Go version in `go.mod`. From a reviewed checkout:
@@ -106,9 +112,12 @@ random high-entropy credentials. Keep a private file with mode `0600`:
 ```
 
 Add distinct keys mapped to another workspace to provision a separate team.
-`write` includes reading and deleting reports in that workspace. Read credentials
-cannot mutate reports. Rotate/revoke by replacing/removing a hash and restarting
-the service. There are no self-service users, invitations, sessions or SSO yet.
+This version 1 configuration remains supported. `write` includes reading and
+deleting reports in that workspace; read credentials cannot mutate reports.
+New initialization creates version 2 with named subjects and explicit scopes.
+Rotate/revoke by replacing/removing a hash and reloading with SIGHUP, or restarting.
+See the [access guide](hub-access.md) for memberships and expiry. There is no
+self-service signup, invitation UI or SSO yet.
 
 ## HTTP contract
 
@@ -151,8 +160,10 @@ must refer to a GitHub Actions run in the supplied repository. Errors return
   replenishing one request every two seconds. These limits do not replace
   perimeter protection against unauthenticated traffic.
 - Direct API summaries and repository/check identifiers can contain confidential
-  information. This is not a complete secret scanner, encrypted database,
-  per-user audit system or verified provenance service.
+  information. This is not a complete secret scanner or encrypted database.
+  The [audit chain](hub-access.md) needs external checkpoints to detect a hostile
+  operator rewriting all local state. [CI identity verification](hub-ci-identity.md)
+  authenticates the publisher, not the experiments or selected source checkout.
 - Browser disconnect forgets the credential locally; token revocation is an
   operator action. A stolen valid key can perform its workspace permission.
 

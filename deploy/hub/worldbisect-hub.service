@@ -1,0 +1,48 @@
+[Unit]
+Description=WorldBisect experimental team report hub
+Documentation=https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/hub-operations.md
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=worldbisect-hub
+Group=worldbisect-hub
+ExecStart=/usr/local/bin/worldbisect-hub serve --config /etc/worldbisect-hub/config.json --data /var/lib/worldbisect-hub/data --audit-dir /var/lib/worldbisect-hub/audit --listen 127.0.0.1:8090
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+StateDirectory=worldbisect-hub
+StateDirectoryMode=0700
+WorkingDirectory=/var/lib/worldbisect-hub
+ReadOnlyPaths=/etc/worldbisect-hub
+ReadWritePaths=/var/lib/worldbisect-hub
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @raw-io
+LimitNOFILE=4096
+TasksMax=64
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

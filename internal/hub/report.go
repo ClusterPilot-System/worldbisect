@@ -30,8 +30,9 @@ type Submission struct {
 }
 
 type Report struct {
-	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string             `json:"id"`
+	CreatedAt time.Time          `json:"created_at"`
+	Publisher *PublisherIdentity `json:"publisher,omitempty"`
 	Submission
 }
 
