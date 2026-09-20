@@ -43,11 +43,33 @@ jobs:
         run: go test ./... -count=1
       - name: Race detector
         run: go test -race ./... -count=1
+      - name: Team hub publisher and browser scripts
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_publish_hub_report.py'
+          node --check web/hub/app.js
+          node --test web/hub/app.test.js
+          make build-hub
       - name: End-to-end
         env:
           WORLDBISECT_E2E_RACE: "1"
           WORLDBISECT_E2E_ARTIFACT_DIR: build/diagnostics
         run: timeout --foreground 120s ./scripts/e2e.sh
+      - name: Team hub end-to-end with engine report
+        run: python3 scripts/hub-e2e.py --report build/diagnostics/analysis.json
+      - name: Install isolated browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/worldbisect-browser" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          "$RUNNER_TEMP/worldbisect-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Team hub browser interactions
+        run: NODE_PATH="$RUNNER_TEMP/worldbisect-browser/node_modules" node web/hub/browser-check.cjs
+      - name: Upload hub browser screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: worldbisect-hub-browser
+          path: build/hub-browser
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload diagnostic reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

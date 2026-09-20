@@ -63,6 +63,11 @@ credential formats are rejected; this is not a complete secret scanner.
 
 ## Where it fits
 
+**For teams:** a separate, source-built [report hub preview](docs/team-hub.md)
+collects CI diagnosis summaries in workspaces with scoped read/write credentials.
+Experiments stay in your CI; the hub displays client-reported evidence. This is
+an experimental self-hosted component, not a managed SaaS offering.
+
 | Good starting point | Current boundary |
 | --- | --- |
 | A configuration change breaks a repeatable Linux check | Selected regular files; up to 256 files / 16 MiB in CI mode |

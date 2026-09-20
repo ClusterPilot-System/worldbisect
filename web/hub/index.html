@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Team reports · WorldBisect</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="WorldBisect home"><span class="brand-mark" aria-hidden="true">W/</span>WorldBisect</a>
+    <span class="preview-label">Experimental team hub</span>
+    <div id="session-controls" class="session-controls" hidden>
+      <span id="workspace-label"></span>
+      <button id="disconnect" class="button-quiet button-on-dark" type="button">Disconnect</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">From a failed check to a useful next step</p>
+      <h1 id="page-title">Yesterday green.<br>Today, an answer.</h1>
+      <p class="intro-copy">Bring your team's CI findings into one place. See what changed, what was tested, and what to check next.</p>
+    </section>
+
+    <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+
+    <section id="login" class="login-layout" aria-labelledby="login-title">
+      <div class="panel login-panel">
+        <p class="eyebrow">Your workspace</p>
+        <h2 id="login-title">Open team reports</h2>
+        <p>Use a workspace token from your hub administrator.</p>
+        <form id="token-form">
+          <label for="token">Workspace access token</label>
+          <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required maxlength="512" aria-describedby="token-help">
+          <p id="token-help" class="help">Kept only in memory in this tab. Reloading or disconnecting clears it.</p>
+          <button id="connect" class="button-primary" type="submit">Open workspace <span aria-hidden="true">→</span></button>
+        </form>
+      </div>
+      <aside class="onboarding" aria-labelledby="how-title">
+        <span class="section-number" aria-hidden="true">01 / 02 / 03</span>
+        <h2 id="how-title">Your CI runs the check.<br>Your team sees the result.</h2>
+        <ol>
+          <li><strong>Run WorldBisect in CI.</strong><span>Reproduce the good and failing states within the configured proof boundary.</span></li>
+          <li><strong>Publish a reviewed summary.</strong><span>Use <code>scripts/publish-hub-report.py</code> from the repository. Keep secrets and raw captures out of reports.</span></li>
+          <li><strong>Decide what to investigate.</strong><span>Open the finding alongside its CI run and reported confidence.</span></li>
+        </ol>
+      </aside>
+    </section>
+
+    <div id="dashboard" hidden>
+      <div class="dashboard-heading">
+        <div><p class="eyebrow">Team workspace</p><h2>CI reports <span id="report-count" class="count">0</span></h2></div>
+        <button id="refresh" class="button-secondary" type="button">Refresh reports</button>
+      </div>
+      <p class="trust-notice"><span aria-hidden="true">ⓘ</span> Reported by CI; not independently verified by this hub.</p>
+
+      <section class="filters" aria-label="Filter reports">
+        <div class="search-field"><label for="search">Search reports</label><input id="search" type="search" placeholder="Finding, check, or commit…" autocomplete="off"></div>
+        <div><label for="repository-filter">Repository</label><select id="repository-filter"><option value="">All repositories</option></select></div>
+        <div><label for="status-filter">Reported confidence</label><select id="status-filter"><option value="">All statuses</option><option>PROVEN</option><option>SUPPORTED</option><option>CORRELATED</option><option>UNPROVEN</option></select></div>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="panel report-panel" aria-label="Available CI reports">
+          <p id="list-status" class="list-status" role="status" aria-live="polite">Loading reports…</p>
+          <div id="report-list" class="report-list"></div>
+          <div id="empty-state" class="empty-state" hidden><span class="empty-symbol" aria-hidden="true">↗</span><h3 id="empty-title">Your first report starts in CI</h3><p id="empty-description">Publish a reviewed summary with scripts/publish-hub-report.py, then refresh this workspace.</p></div>
+        </section>
+
+        <section id="detail" class="panel detail-panel" aria-labelledby="detail-title" aria-live="polite">
+          <div id="detail-empty" class="detail-empty"><span class="eyebrow">Four answers. One place.</span><h2>Select a report</h2><p>Understand the finding, the actual tests, the reported confidence, and the next step.</p></div>
+          <div id="detail-content" hidden>
+            <div class="detail-topline"><span id="detail-repository" class="eyebrow"></span><span id="detail-status" class="status-badge"></span></div>
+            <h2 id="detail-title" tabindex="-1"></h2>
+            <p id="detail-meta" class="detail-meta"></p>
+            <div class="answers">
+              <section><span class="answer-number">01</span><div><h3>What was found?</h3><p id="detail-finding"></p></div></section>
+              <section><span class="answer-number">02</span><div><h3>What was actually tested?</h3><p id="detail-tested"></p><p id="detail-experiments" class="help"></p></div></section>
+              <section><span class="answer-number">03</span><div><h3>How confident is the CI result?</h3><p id="detail-confidence"></p><p class="help">Client-reported status. This hub stores the summary; it does not rerun checks or verify proof evidence.</p></div></section>
+              <section><span class="answer-number">04</span><div><h3>What should you check next?</h3><p id="detail-next"></p></div></section>
+            </div>
+            <div class="detail-actions"><a id="run-link" class="button-primary" target="_blank" rel="noopener noreferrer" hidden>Open CI run <span aria-hidden="true">↗</span></a><button id="delete" class="button-quiet button-danger" type="button" hidden>Delete report</button></div>
+            <div id="delete-confirm" class="delete-confirm" hidden><p>Delete this report from the workspace? The original CI run is kept.</p><div class="confirm-actions"><button id="delete-cancel" class="button-secondary" type="button">Cancel</button><button id="delete-yes" class="button-destructive" type="button">Delete this report</button></div></div>
+            <p id="detail-error" class="detail-error" role="alert" hidden></p>
+          </div>
+        </section>
+      </div>
+    </div>
+    <footer><span>WorldBisect / Team reports</span><a href="https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/proof-boundary.md" target="_blank" rel="noopener noreferrer">Understand the proof boundary <span aria-hidden="true">↗</span></a></footer>
+  </main>
+</body>
+</html>

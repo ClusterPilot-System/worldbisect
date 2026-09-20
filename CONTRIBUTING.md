@@ -14,10 +14,10 @@ WorldBisect 1.x is maintained as a stable, bounded Linux diagnostic package. Con
 The safest way to start is a documentation-only issue with a bounded acceptance
 checklist:
 
-- [Issue #36: add a native tracer troubleshooting example](https://github.com/ClusterPilot-System/worldbisect/issues/36)
-- [Issue #37: add a sanitized diagnostic handoff walkthrough](https://github.com/ClusterPilot-System/worldbisect/issues/37)
+- [Open good first issues](https://github.com/ClusterPilot-System/worldbisect/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- [Completed handoff example](docs/diagnostic-handoff-walkthrough.md) for a model of a bounded contribution
 
-Both are labeled `good first issue` and `documentation`. Comment on the issue
+If there is no suitable open issue, propose a specific documentation gap. Comment on the issue
 before starting so maintainers can reserve it and answer scope questions. A
 first contribution should change only the named files, include link/command
 validation, and avoid introducing a new dependency or broadening the Linux
@@ -64,6 +64,11 @@ Every pull request must:
 - avoid adding cloud services, telemetry, or runtime dependencies without a formal architecture decision.
 
 Security-sensitive changes require review from a maintainer familiar with the affected trust boundary.
+
+The opt-in team report hub preview has a separate trust boundary described in
+[ADR 0007](docs/adr/0007-team-report-hub-preview.md). Run `make test-hub` for hub
+changes as well as the normal checks. Its presence does not broaden the 1.x
+causal engine's supported interventions.
 
 ## Commit policy
 
