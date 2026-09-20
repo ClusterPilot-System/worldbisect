@@ -18,6 +18,7 @@ for path in sorted(root.rglob("*")):
     relative = path.relative_to(root).as_posix()
     if (relative.startswith((".git/", "dist/", "bin/", "build/"))
             or relative in (".git", "coverage.out", ".coverage", "worldbisect", "worldbisectd")
+            or path.name in (".gitattributes", ".gitignore")
             or "__pycache__" in path.relative_to(root).parts or path.suffix == ".pyc"):
         continue
     contents = path.read_bytes()

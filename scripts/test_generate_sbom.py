@@ -27,6 +27,8 @@ class PackageVerificationCodeTest(unittest.TestCase):
             script.parent.mkdir()
             shutil.copyfile(pathlib.Path(__file__).with_name("generate-sbom.py"), script)
             output = root / "dist" / "fixture.spdx.json"
+            for name in (".gitattributes", ".gitignore"):
+                (root / name).write_text("excluded by the source archive's --exclude-vcs\n")
             for name, contents in (("a-empty", b""), ("m-duplicate", b"abc"), ("z-abc", b"abc")):
                 (root / name).write_bytes(contents)
 
