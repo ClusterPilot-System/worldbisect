@@ -1,20 +1,25 @@
-name: WorldBisect
-description: Capture two explicitly selected workspaces and publish a deterministic diagnosis
+# Implementations are immutable pins; see docs/marketplace.md before updating.
+name: WorldBisect CI Diagnosis
+description: Keep safe successful CI inputs and test why a later Linux check fails; also compare explicit workspaces
 author: ClusterPilot System
 branding:
   color: blue
   icon: search
-
 inputs:
+  mode:
+    description: ci saves safe successful inputs automatically; compare preserves the existing explicit-workspace interface
+    default: compare
   command:
-    description: Explicit executable and whitespace-separated arguments used in both workspaces
+    description: 'ci: JSON argument array; compare: executable and whitespace-separated arguments'
     required: true
   good-workspace:
-    description: Workspace path relative to GITHUB_WORKSPACE representing the known-good world
-    required: true
+    description: 'compare mode only: Workspace path relative to GITHUB_WORKSPACE representing the known-good world'
+    required: false
+    default: ''
   bad-workspace:
-    description: Workspace path relative to GITHUB_WORKSPACE representing the known-bad world
-    required: true
+    description: 'compare mode only: Workspace path relative to GITHUB_WORKSPACE representing the known-bad world'
+    required: false
+    default: ''
   version:
     description: WorldBisect release version without the leading v
     required: false
@@ -63,255 +68,105 @@ inputs:
     description: Optional GitHub token for the PR comment and report checks; defaults to the workflow token
     required: false
     default: ''
-
+  files:
+    description: 'ci mode only: Explicit relative regular file paths, one per line. Contents are retained unredacted; select only safe inputs.'
+    required: false
+    default: ''
+  baseline-key:
+    description: 'ci mode only: Stable unique identifier for this check and matrix variant within the job'
+    default: default
+    required: false
+  retention-days:
+    description: 'ci mode only: Maximum baseline age and artifact retention (1-30 days)'
+    default: '7'
+    required: false
+  timeout-seconds:
+    description: 'ci mode only: Timeout for each command execution (1-600 seconds)'
+    default: '60'
+    required: false
+  diagnostic-timeout-seconds:
+    description: 'ci mode only: Total compare budget in seconds (1-900); the command failure is preserved on timeout'
+    default: '180'
+    required: false
 outputs:
   status:
-    description: Deterministic WorldBisect analysis status
-    value: ${{ steps.run.outputs.status }}
+    description: CI outcome or bounded WorldBisect analysis status
+    value: ${{ steps.ci.outputs.status || steps.compare.outputs.status }}
   analysis-id:
     description: Stable WorldBisect analysis identifier
-    value: ${{ steps.run.outputs.analysis-id }}
+    value: ${{ steps.ci.outputs.analysis-id || steps.compare.outputs.analysis-id }}
   report-path:
     description: Markdown report path in the uploaded artifact
-    value: ${{ steps.run.outputs.report-path }}
+    value: ${{ steps.compare.outputs.report-path }}
   bundle-path:
     description: Redacted diagnostic bundle path in the uploaded artifact
-    value: ${{ steps.run.outputs.bundle-path }}
+    value: ${{ steps.compare.outputs.bundle-path }}
   report-artifact-url:
     description: Direct URL to the uploaded Markdown report artifact
-    value: ${{ steps.upload-report.outputs.artifact-url }}
+    value: ${{ steps.compare.outputs.report-artifact-url }}
   artifact-url:
     description: Direct URL to the uploaded diagnostic evidence artifact
-    value: ${{ steps.upload-evidence.outputs.artifact-url }}
+    value: ${{ steps.ci.outputs.artifact-url || steps.compare.outputs.artifact-url }}
   artifact-id:
     description: GitHub artifact ID for the diagnostic evidence
-    value: ${{ steps.upload-evidence.outputs.artifact-id }}
+    value: ${{ steps.compare.outputs.artifact-id }}
   artifact-digest:
     description: SHA-256 digest of the uploaded diagnostic evidence artifact
-    value: ${{ steps.upload-evidence.outputs.artifact-digest }}
+    value: ${{ steps.compare.outputs.artifact-digest }}
   junit-path:
     description: Local JUnit report path for a test-report check publisher
-    value: ${{ steps.run.outputs.junit-path }}
+    value: ${{ steps.compare.outputs.junit-path }}
   sarif-path:
     description: Local SARIF report path for Code Scanning upload
-    value: ${{ steps.run.outputs.sarif-path }}
-
+    value: ${{ steps.compare.outputs.sarif-path }}
+  baseline-run-id:
+    description: 'ci mode: selected trusted successful workflow run'
+    value: ${{ steps.ci.outputs.baseline-run-id }}
 runs:
   using: composite
   steps:
-    - id: run
-      name: Run WorldBisect
-      shell: bash
-      env:
-        INPUT_COMMAND: ${{ inputs.command }}
-        INPUT_GOOD_WORKSPACE: ${{ inputs.good-workspace }}
-        INPUT_BAD_WORKSPACE: ${{ inputs.bad-workspace }}
-        INPUT_VERSION: ${{ inputs.version }}
-        INPUT_SHA256: ${{ inputs.sha256 }}
-        INPUT_REPOSITORY: ${{ inputs.repository }}
-        INPUT_ORACLE: ${{ inputs.oracle }}
-        INPUT_REPETITIONS: ${{ inputs.repetitions }}
-        INPUT_MAX_EXPERIMENTS: ${{ inputs.max-experiments }}
-        INPUT_FAIL_ON: ${{ inputs.fail-on }}
-        INPUT_REPORT_URL: ${{ inputs.report-url }}
-        INPUT_BUNDLE_URL: ${{ inputs.bundle-url }}
-        WORLD_BISECT_OUTPUT_DIR: ${{ runner.temp }}/worldbisect-action
-      run: ${{ github.action_path }}/scripts/github-action.sh
-
-    - id: upload-evidence
-      name: Upload WorldBisect evidence
-      if: always()
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: ${{ inputs.artifact-name }}
-        path: ${{ runner.temp }}/worldbisect-action/artifacts
-        if-no-files-found: error
-        retention-days: 14
-
-    - id: upload-report
-      name: Upload WorldBisect report
-      if: always() && steps.run.outcome == 'success'
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: ${{ inputs.artifact-name }}-report
-        path: ${{ runner.temp }}/worldbisect-action/artifacts/report.md
-        if-no-files-found: error
-        retention-days: 14
-
-    - name: Publish JUnit test check
-      if: >-
-        always() && steps.run.outcome == 'success' &&
-        ((github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
-        github.event.pull_request.head.repo.full_name == github.repository)
-      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-      with:
-        name: WorldBisect diagnosis (JUnit) / ${{ inputs.artifact-name }}
-        path: ${{ steps.run.outputs.junit-path }}
-        reporter: java-junit
-        fail-on-error: 'false'
-
-    - name: Prepare SARIF for Code Scanning
-      if: >-
-        always() && steps.run.outcome == 'success' &&
-        ((github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
-        github.event.pull_request.head.repo.full_name == github.repository)
-      shell: bash
-      env:
-        SOURCE: ${{ steps.run.outputs.sarif-path }}
-        TARGET: ${{ runner.temp }}/worldbisect-action/artifacts/github-code-scanning.sarif
-      run: |
-        python3 - "$SOURCE" "$TARGET" <<'PY'
-        import json
-        import sys
-        from pathlib import Path
-
-        source = Path(sys.argv[1])
-        target = Path(sys.argv[2])
-        document = json.loads(source.read_text(encoding="utf-8"))
-        for run in document.get("runs", []):
-            for result in run.get("results", []):
-                # Keep the canonical worldbisect:// location in report.sarif.
-                # Code Scanning requires a relative/file URI and a location.
-                result["locations"] = [{
-                    "physicalLocation": {
-                        "artifactLocation": {"uri": "worldbisect-action/report.sarif"},
-                        "region": {"startLine": 1},
-                    }
-                }]
-        target.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
-        PY
-
-    - name: Upload SARIF to Code Scanning
-      if: >-
-        always() && steps.run.outcome == 'success' &&
-        ((github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
-        github.event.pull_request.head.repo.full_name == github.repository)
-      uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
-      with:
-        sarif_file: ${{ runner.temp }}/worldbisect-action/artifacts/github-code-scanning.sarif
-        category: worldbisect-${{ inputs.artifact-name }}
-
-    - name: Validate PR comment configuration
-      if: >-
-        always() && inputs.comment-pr == 'true' &&
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository
-      shell: bash
-      env:
-        WORLDBISECT_GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
-      run: |
-        if [[ -z "${WORLDBISECT_GITHUB_TOKEN:-}" ]]; then
-          echo 'comment-pr=true requires workflow token access' >&2
-          exit 1
-        fi
-
-    - name: Update pull request summary comment
-      if: >-
-        always() && inputs.comment-pr == 'true' &&
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        steps.run.outcome == 'success'
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-      env:
-        REPORT_PATH: ${{ steps.run.outputs.report-path }}
-        STATUS: ${{ steps.run.outputs.status }}
-        ANALYSIS_ID: ${{ steps.run.outputs.analysis-id }}
-        REPORT_URL: ${{ inputs.report-url }}
-        REPORT_ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
-        EVIDENCE_ARTIFACT_URL: ${{ steps.upload-evidence.outputs.artifact-url }}
-        FAIL_ON: ${{ inputs.fail-on }}
-      with:
-        github-token: ${{ inputs.github-token || github.token }}
-        script: |
-          const fs = require('fs');
-          const marker = '<!-- worldbisect-diagnosis -->';
-          let report = '';
-          try {
-            report = fs.readFileSync(process.env.REPORT_PATH, 'utf8').trim();
-          } catch (error) {
-            report = 'The Markdown report was not available on the runner.';
-          }
-          const maxReportLength = 12000;
-          if (report.length > maxReportLength) {
-            report = `${report.slice(0, maxReportLength)}\n\n_Report truncated; see the uploaded artifact for the complete report._`;
-          }
-          const links = [];
-          if (process.env.REPORT_URL) links.push(`[report](${process.env.REPORT_URL})`);
-          else if (process.env.REPORT_ARTIFACT_URL) links.push(`[report artifact](${process.env.REPORT_ARTIFACT_URL})`);
-          if (process.env.EVIDENCE_ARTIFACT_URL) links.push(`[diagnostic evidence](${process.env.EVIDENCE_ARTIFACT_URL})`);
-          const body = [
-            marker,
-            '## WorldBisect diagnosis',
-            '',
-            `- Status: \`${process.env.STATUS || 'unavailable'}\``,
-            `- Analysis: \`${process.env.ANALYSIS_ID || 'unavailable'}\``,
-            `- Exit policy: \`${process.env.FAIL_ON || 'never'}\``,
-            links.length ? `- ${links.join(' · ')}` : '',
-            '',
-            report,
-          ].filter(Boolean).join('\n');
-          const { owner, repo } = context.repo;
-          const issue_number = context.issue.number;
-          const comments = await github.paginate(github.rest.issues.listComments, {
-            owner, repo, issue_number, per_page: 100,
-          });
-          const existing = comments.find(comment =>
-            comment.user?.type === 'Bot' && comment.body?.includes(marker));
-          if (existing) {
-            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-          } else {
-            await github.rest.issues.createComment({ owner, repo, issue_number, body });
-          }
-
-    - name: Publish WorldBisect summary
-      if: always()
-      shell: bash
-      env:
-        STATUS: ${{ steps.run.outputs.status }}
-        ANALYSIS_ID: ${{ steps.run.outputs.analysis-id }}
-        REPORT_URL: ${{ inputs.report-url }}
-        REPORT_ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
-        EVIDENCE_ARTIFACT_URL: ${{ steps.upload-evidence.outputs.artifact-url }}
-        REPORT_PATH: ${{ steps.run.outputs.report-path }}
-      run: |
-        if [[ -z "${GITHUB_STEP_SUMMARY:-}" ]]; then
-          exit 0
-        fi
-        {
-          echo '## WorldBisect diagnosis'
-          echo
-          if [[ -n "${STATUS:-}" ]]; then
-            echo "- Status: \`$STATUS\`"
-          else
-            echo '- Status: Action did not produce a diagnosis.'
-          fi
-          if [[ -n "${ANALYSIS_ID:-}" ]]; then
-            echo "- Analysis: \`$ANALYSIS_ID\`"
-          fi
-          if [[ -n "${REPORT_URL:-}" ]]; then
-            echo "- Report: [$REPORT_URL]($REPORT_URL)"
-          elif [[ -n "${REPORT_ARTIFACT_URL:-}" ]]; then
-            echo "- Report artifact: [$REPORT_ARTIFACT_URL]($REPORT_ARTIFACT_URL)"
-          fi
-          if [[ -n "${EVIDENCE_ARTIFACT_URL:-}" ]]; then
-            echo "- Diagnostic artifact: [$EVIDENCE_ARTIFACT_URL]($EVIDENCE_ARTIFACT_URL)"
-          fi
-          echo "- JUnit report: `${RUNNER_TEMP}/worldbisect-action/artifacts/report.junit.xml` (published as a check when write access is available)"
-          echo "- SARIF report: `${RUNNER_TEMP}/worldbisect-action/artifacts/report.sarif` (uploaded to Code Scanning when write access is available)"
-          echo "- Exit policy: `${{ inputs.fail-on }}` (applied after report and evidence publication)"
-          echo
-          if [[ -n "${REPORT_PATH:-}" && -f "$REPORT_PATH" ]]; then
-            cat "$REPORT_PATH"
-          fi
-        } >> "$GITHUB_STEP_SUMMARY"
-
-    - name: Apply WorldBisect failure policy
-      if: always()
-      shell: bash
-      run: |
-        exit_code='${{ runner.temp }}/worldbisect-action/exit-code'
-        if [[ ! -f "$exit_code" ]]; then
-          echo 'WorldBisect did not produce a failure-policy result.' >&2
-          exit 1
-        fi
-        exit "$(cat "$exit_code")"
+  - name: Validate Action mode
+    shell: bash
+    env:
+      INPUT_MODE: ${{ inputs.mode }}
+      INPUT_COMMAND: ${{ inputs.command }}
+      INPUT_FILES: ${{ inputs.files }}
+      INPUT_GOOD_WORKSPACE: ${{ inputs.good-workspace }}
+      INPUT_BAD_WORKSPACE: ${{ inputs.bad-workspace }}
+      INPUT_REPOSITORY: ${{ inputs.repository }}
+      INPUT_FAIL_ON: ${{ inputs.fail-on }}
+    run: python3 "$GITHUB_ACTION_PATH/scripts/validate-action-mode.py"
+  - name: Run automatic CI diagnosis
+    id: ci
+    if: inputs.mode == 'ci'
+    uses: ClusterPilot-System/worldbisect/actions/ci@e05d1b12304674ce6c79d0b93828e833e6419bdd
+    with:
+      command: ${{ inputs.command }}
+      files: ${{ inputs.files }}
+      baseline-key: ${{ inputs.baseline-key }}
+      retention-days: ${{ inputs.retention-days }}
+      timeout-seconds: ${{ inputs.timeout-seconds }}
+      diagnostic-timeout-seconds: ${{ inputs.diagnostic-timeout-seconds }}
+      comment-pr: ${{ inputs.comment-pr }}
+      version: ${{ inputs.version }}
+      sha256: ${{ inputs.sha256 }}
+  - name: Compare explicit workspaces
+    id: compare
+    if: inputs.mode == 'compare'
+    uses: ClusterPilot-System/worldbisect/actions/compare@e05d1b12304674ce6c79d0b93828e833e6419bdd
+    with:
+      command: ${{ inputs.command }}
+      good-workspace: ${{ inputs.good-workspace }}
+      bad-workspace: ${{ inputs.bad-workspace }}
+      version: ${{ inputs.version }}
+      sha256: ${{ inputs.sha256 }}
+      repository: ${{ inputs.repository }}
+      oracle: ${{ inputs.oracle }}
+      repetitions: ${{ inputs.repetitions }}
+      max-experiments: ${{ inputs.max-experiments }}
+      fail-on: ${{ inputs.fail-on }}
+      report-url: ${{ inputs.report-url }}
+      bundle-url: ${{ inputs.bundle-url }}
+      artifact-name: ${{ inputs.artifact-name }}
+      comment-pr: ${{ inputs.comment-pr }}
+      github-token: ${{ inputs.github-token }}

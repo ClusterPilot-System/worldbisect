@@ -30,8 +30,9 @@ jobs:
       - name: Run and diagnose
         id: diagnose
         continue-on-error: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_failure == 'true' }}
-        uses: ./actions/ci
+        uses: ./
         with:
+          mode: ci
           command: '["./examples/ci-baseline/check.sh"]'
           files: |
             examples/ci-baseline/check.sh
