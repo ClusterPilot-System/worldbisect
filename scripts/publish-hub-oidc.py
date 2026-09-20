@@ -23,7 +23,7 @@ SAFE_ERROR_CODES = frozenset({
     "OIDC_CREDENTIAL_MISSING", "OIDC_CREDENTIAL_SIZE", "OIDC_CREDENTIAL_FORMAT",
     "OIDC_HTTP_AUTH", "OIDC_HTTP_STATUS", "OIDC_TRANSPORT", "OIDC_REDIRECT",
     "OIDC_RESPONSE_SIZE", "OIDC_RESPONSE_JSON", "OIDC_RESPONSE_TOKEN",
-    "HUB_HTTP_AUTH", "HUB_HTTP_STATUS", "HUB_TRANSPORT", "HUB_RESPONSE",
+    "HUB_HTTP_IDENTITY", "HUB_HTTP_TRUST", "HUB_HTTP_STATUS", "HUB_TRANSPORT", "HUB_RESPONSE",
     "PUBLISHER_ERROR",
 })
 
@@ -153,7 +153,7 @@ def publish(hub, payload, token):
                 raise PublisherError("HUB_RESPONSE")
             return identifier
     except urllib.error.HTTPError as exc:
-        code = "HUB_HTTP_AUTH" if exc.code in (401, 403) else "HUB_HTTP_STATUS"
+        code = {401: "HUB_HTTP_IDENTITY", 403: "HUB_HTTP_TRUST"}.get(exc.code, "HUB_HTTP_STATUS")
         raise PublisherError(code) from None
     except (urllib.error.URLError, TimeoutError):
         raise PublisherError("HUB_TRANSPORT") from None

@@ -1,10 +1,12 @@
 import importlib.util
+import base64
 import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 import unittest
 from unittest.mock import patch
 import urllib.parse
@@ -125,6 +127,27 @@ class OIDCPublisherTest(unittest.TestCase):
         self.assertIn("[OIDC_URL_HOST]", result.stderr)
         self.assertNotIn("secret", result.stdout + result.stderr)
         self.assertNotIn("Traceback", result.stderr)
+
+    def test_live_contract_diagnostics_emit_only_fixed_flags(self):
+        spec = importlib.util.spec_from_file_location("live_oidc", Path(__file__).with_name("hub-oidc-e2e.py"))
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        env = dict(GITHUB_REPOSITORY="example/project", GITHUB_REPOSITORY_ID="123", GITHUB_REPOSITORY_OWNER_ID="456",
+                   GITHUB_WORKFLOW_REF="example/project/.github/workflows/ci.yml@refs/heads/main", GITHUB_REF="refs/heads/main",
+                   GITHUB_SHA="a"*40, GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="1")
+        header = {"alg": "RS256", "typ": "JWT", "kid": "fixture"}
+        token = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=") + ".payload.signature"
+        now = int(time.time())
+        claims = dict(iss="https://token.actions.githubusercontent.com", aud="https://hub.example/team",
+                      repository=env["GITHUB_REPOSITORY"], repository_id="123", repository_owner_id="456",
+                      workflow_ref=env["GITHUB_WORKFLOW_REF"], ref=env["GITHUB_REF"], sha=env["GITHUB_SHA"],
+                      run_id="123", run_attempt="1", ref_type="branch", event_name="push", runner_environment="github-hosted",
+                      jti="fixture-token-id", iat=now-2, nbf=now-2, exp=now+298)
+        self.assertEqual(helper.contract_diagnostics(token, claims, "https://hub.example/team", env), [])
+        claims.update(job_workflow_ref="secret-provider-value", iss="secret-issuer-value", exp="secret-time-value")
+        flags = helper.contract_diagnostics(token, claims, "https://hub.example/team", env)
+        self.assertEqual(set(flags), {"CLAIM_ISS", "CLAIM_JOB_WORKFLOW_REF_ABSENT", "JOB_WORKFLOW_REF_OTHER", "CLAIM_TIME_TYPES"})
+        self.assertNotIn("secret", ",".join(flags))
 
 
 if __name__ == "__main__":
