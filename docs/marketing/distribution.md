@@ -1,18 +1,20 @@
 # WorldBisect distribution plan
 
-Research checked on **2026-09-20**. This is an execution plan, not a record of
-external publications or a promise of adoption.
+Research checked on **2026-09-20**. This document separates verified activity
+from proposed follow-up work. GitHub reported **3 stars** on that date; no
+customer adoption or future star count is inferred from it.
 
 ## Positioning and near-term outcome
 
 **Your CI passed yesterday. Today it fails. Test what changed.**
 
-The released product is a Linux CLI and GitHub Actions integration. Describe any
-new team report hub as a preview until its deployment and operating guarantees
-are verified. A hosted SaaS service, paid plans and production service guarantees
-are not currently available.
+The released product is a Linux CLI and GitHub Actions integration. The separate
+[team report hub](../team-hub.md) is available from source on `main`, following
+[PR #62](https://github.com/ClusterPilot-System/worldbisect/pull/62). It remains an
+experimental self-hosted preview. A hosted SaaS service, paid plans and production
+service guarantees are not currently available.
 
-The next 30 days target **five voluntary pilot users** who have a repeatable Linux
+A useful next adoption target is **five voluntary pilot users** who have a repeatable Linux
 check and can deliberately select non-secret input files. A pilot should try a
 successful baseline followed by a failure and report whether the diagnosis helps.
 Five is a target, not an existing customer count. Stars are a secondary discovery
@@ -23,7 +25,7 @@ signal; do not promise 100 stars or trade contributions for them.
 | Channel | Useful contribution | Rules and next action |
 | --- | --- | --- |
 | [nektos/act](https://github.com/nektos/act) | Small, executed regression cases for CI failure handling. Our existing step-level `continue-on-error` retest is a relevant starting point. | The [contribution guide](https://github.com/nektos/act/blob/master/CONTRIBUTING.md) asks contributors to search existing issues and supply reproduction details. Usage questions belong in Discussions; code PRs target `master`, user-guide changes go to `nektos/act-docs`. Follow up on #900 only when there is a maintainer question or new evidence. Do not file a second report for the same behavior. |
-| [reviewdog](https://github.com/reviewdog/reviewdog) | Test whether WorldBisect's SARIF output can produce useful PR diagnostics through reviewdog, including missing locations and inconclusive results. | Its [README](https://github.com/reviewdog/reviewdog#sarif-format) documents SARIF 2.1.0 input. Its [contribution guide](https://github.com/reviewdog/reviewdog/blob/master/.github/CONTRIBUTING.md) leaves general contribution rules unspecified. Build and verify the example in WorldBisect first, then offer a narrowly useful documentation contribution. Compatibility is not yet verified. Do not force causal diagnostics into security-vulnerability claims. |
+| [reviewdog](https://github.com/reviewdog/reviewdog) | The [executed integration](../integrations/reviewdog.md) maps one proven file cause to a useful reviewdog diagnostic. Raw analysis URIs are not source paths; the bounded adapter preserves the proof limits and refuses inconclusive results. | Verified locally with reviewdog 0.21.2: nine-experiment proof, one file diagnostic with `-filter-mode=file`, and error exit policy. Remote PR delivery is not verified. The [contribution guide](https://github.com/reviewdog/reviewdog/blob/master/.github/CONTRIBUTING.md) was checked and a generic SARIF-location documentation patch prepared. Its issue submission was rejected with HTTP 403; [exact patch and status](../integrations/reviewdog.md#upstream-documentation-contribution) are retained. Do not repeat the denied write or portray the result as a vulnerability. |
 | [Show HN](https://news.ycombinator.com/shownew) | Jo can personally present an executable example and discuss the trade-offs of intervention-based diagnosis. | [Show HN rules](https://news.ycombinator.com/showhn.html) require something people can try, preferably without signup, and the maker's availability for discussion. [HN guidelines](https://news.ycombinator.com/newsguidelines.html) prohibit generated or AI-edited text and soliciting votes. Jo must write the submission and discussion himself; marketing agents must not publish generated copy there. A future SaaS signup page alone is unsuitable. |
 
 The act and reviewdog repositories were not archived when checked. Reviewdog had
@@ -35,11 +37,17 @@ rules before any later submission.
 
 - [actions/runner #2418, comment 5702898846](https://github.com/actions/runner/issues/2418#issuecomment-5702898846): exists under `JossefMo1`; includes public CI failure evidence and a tested dispatch-input workaround. Do not duplicate it or describe a runner patch as verified.
 - [nektos/act #900, comment 5703159971](https://github.com/nektos/act/issues/900#issuecomment-5703159971): exists under `JossefMo1`; reports the v0.2.89 Linux host-execution retest and its limits. This does not validate the original macOS/Docker/Terraform setup.
-- [WorldBisect feedback issue #58](https://github.com/ClusterPilot-System/worldbisect/issues/58): no comments when checked. It is an intake channel, not evidence of customer adoption.
+- [WorldBisect preview update in #58](https://github.com/ClusterPilot-System/worldbisect/issues/58#issuecomment-5750580641): published by `JossefMo1` on September 20, with source setup, implementation and validation links. It asks which two repositories/checks a pilot would review together. This is an announcement, not evidence of customer adoption. The ongoing [feedback guide](feedback.md) and [getting-started form](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml) replace the launch thread as intake once merged.
+
+GitHub's repository API reports `has_discussions: true`. The [Discussions root](https://github.com/ClusterPilot-System/worldbisect/discussions)
+is the existing route for open-ended questions; no unverified category URL or
+new discussion is needed. New setup attempts have their own short issue form.
 
 Earlier external writes returned `403 Resource not accessible by integration`.
 The comments' current existence does not prove that this connection now has
-general external write access. No external write was attempted for this plan.
+general external write access. A single new attempt to create the useful reviewdog
+documentation issue on September 20 returned the same HTTP 403. No reviewdog
+issue or PR was published; the complete proposal is retained in the repository.
 
 ## Marketplace discovery gap
 
@@ -63,14 +71,17 @@ Marketplace discovery is a better direct promotion opportunity than mentioning
 WorldBisect in unrelated bug reports. This plan does not assert that a new
 Marketplace listing has been published.
 
-## 30-day execution plan
+## Proposed follow-up milestones
 
-| Period | Deliverable | Evidence of progress |
+Maintainers can schedule these milestones as people volunteer. This document
+does not start background outreach or a recurring campaign.
+
+| Milestone | Deliverable | Evidence of progress |
 | --- | --- | --- |
-| Days 1–7 | Prepare one pinned, runnable CI example, a short demonstration and a clear explanation of unsupported cases. Resolve the Marketplace distribution design. Invite interested people through our own project/profile channels to try one real check. | Exact demo revision, successful public run, honest installation instructions and a public feedback route. Count only people who explicitly agree to try it. |
-| Days 8–14 | Help the first two pilots select safe files, capture a baseline and interpret one failure or explicit non-reproduction result. Investigate a reviewdog integration locally. | Two completed setup attempts, documented friction and test results. Do not count a signup as a successful diagnosis. |
-| Days 15–21 | Address the most common onboarding problem. Publish a case study only with permission and sanitized evidence. Offer the verified reviewdog example if it adds value; Jo may personally submit to Show HN. | Shipped onboarding improvement, reproducible before/after example, and replies to relevant community questions. |
-| Days 22–30 | Aim to complete five pilot attempts. Ask which result changed the developer's next action and whether they would use the tool again. Rank product work from observed needs. | Pilot attempts, successful baselines, useful diagnoses, explicit inconclusive cases, repeat use and volunteered feedback. Report the actual counts even when below target. |
+| First useful result | Offer the [verified-release demo](../first-diagnosis.md), a bounded CI example and clear unsupported cases. Resolve the Marketplace distribution design. Invite interested people through our own project/profile channels to try one real check. | Exact demo revision, successful public run, honest installation instructions and a public feedback route. Count only people who explicitly agree to try it. |
+| First two pilots | Help volunteers select safe files, capture a baseline and interpret one failure or explicit non-reproduction result. Offer the locally verified reviewdog example when file diagnostics fit the pilot's workflow. | Two completed setup attempts, documented friction and test results. Do not count a signup as a successful diagnosis. |
+| First evidenced improvement | Address the most common onboarding problem. Publish a case study only with permission and sanitized evidence. Offer the verified reviewdog example if it adds value; Jo may personally submit to Show HN. | Shipped onboarding improvement, reproducible before/after example, and replies to relevant community questions. |
+| Five pilot attempts | Ask which result changed the developer's next action and whether they would use the tool again. Rank product work from observed needs. | Pilot attempts, successful baselines, useful diagnoses, explicit inconclusive cases, repeat use and volunteered feedback. Report the actual counts even when below target. |
 
 For each pilot, track the supported use case, setup outcome, time to first useful
 result and the next action the diagnosis enabled. Keep credentials, private source

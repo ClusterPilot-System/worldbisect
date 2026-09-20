@@ -6,6 +6,41 @@ on:
 permissions:
   contents: read
 jobs:
+  reviewdog-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Verify pinned reviewdog and exercise file-level diagnostics
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          demo_dir=$(mktemp -d)
+          trap 'rm -rf "$demo_dir"' EXIT
+          go build -o "$demo_dir/worldbisect" ./cmd/worldbisect
+          curl --fail --silent --show-error --location --proto '=https' --max-time 60 \
+            https://github.com/reviewdog/reviewdog/releases/download/v0.21.2/reviewdog_0.21.2_Linux_x86_64.tar.gz \
+            --output "$demo_dir/reviewdog.tar.gz"
+          printf '%s  %s\n' 30413aa3c7443e9c3c157fe5766cad40e3bb39a32e210ee69b710a8d5c4b8e51 \
+            "$demo_dir/reviewdog.tar.gz" | sha256sum --check --status -
+          tar --extract --gzip --file "$demo_dir/reviewdog.tar.gz" --directory "$demo_dir" reviewdog
+          python3 tests/integrations/reviewdog/run.py \
+            --worldbisect "$demo_dir/worldbisect" --reviewdog "$demo_dir/reviewdog" \
+            --output build/reviewdog-evidence
+      - name: Retain synthetic integration evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reviewdog-integration-evidence
+          path: build/reviewdog-evidence
+          retention-days: 7
+          if-no-files-found: ignore
   integrations:
     runs-on: ubuntu-latest
     timeout-minutes: 15

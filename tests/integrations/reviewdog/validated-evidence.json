@@ -1,0 +1,31 @@
+{
+  "scope": "controlled Linux fixture; portable capture; no network, token or remote PR publication",
+  "worldbisect_binary_sha256": "01a946f6697eabd709ddb0c889136dde1f1380fa53973e3ce3944860f244f7ef",
+  "reviewdog_version": "0.21.2",
+  "status": "PROVEN",
+  "factor": "config.txt",
+  "experiments": 9,
+  "raw_custom_uri_maps_to_workspace_file": false,
+  "raw_file_filter_diagnostic_count": 0,
+  "adapted_default_added_filter_diagnostic_count": 0,
+  "adapted_file_filter_diagnostic_count": 1,
+  "error_fail_level_exit": 1,
+  "remote_github_reporter_tested": false,
+  "budget_limited_status": "UNPROVEN",
+  "budget_limited_experiments": 6,
+  "refused_annotation_cases": [
+    "UNPROVEN",
+    "CORRELATED",
+    "SUPPORTED",
+    "multiple-causes",
+    "path-escape",
+    "symlink",
+    "missing-file",
+    "mismatched-analysis",
+    "missing-proof",
+    "missing-location"
+  ],
+  "recorded_at": "2026-09-20",
+  "worldbisect_source_commit": "d503c8228e0abadbddbe0f0278c9b2e2c8ca428b",
+  "reviewdog_linux_amd64_archive_sha256": "30413aa3c7443e9c3c157fe5766cad40e3bb39a32e210ee69b710a8d5c4b8e51"
+}
