@@ -6,13 +6,37 @@
 [![Integration checks](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/real-workload-integrations.yml/badge.svg)](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/real-workload-integrations.yml)
 [Apache 2.0](LICENSE) · Linux AMD64 / ARM64 · Local CLI + GitHub Actions
 
-WorldBisect compares a working and failing execution, changes supported inputs
-in isolated copies, and reruns the command to test which differences explain
-the failure. Its CI Action can keep the working inputs for you.
+WorldBisect reruns a working and failing check, changes selected inputs in
+isolated copies, and tests which differences explain the failure. Its opt-in
+GitHub Action can save the working inputs automatically.
 
-**Start here:** [CI setup](docs/ci-baselines.md) · [Try the demo](docs/quickstart-demo.md) ·
-[What “PROVEN” means](docs/proof-boundary.md) · [Integration evidence](docs/integration-validation.md) ·
-[Release 1.2.0](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.0)
+**Start here:** [First diagnosis](docs/first-diagnosis.md) · [Add it to CI](docs/ci-baselines.md) ·
+[Team report hub preview](docs/team-hub.md) · [Evidence and limits](docs/proof-boundary.md)
+
+## Get your first diagnosis
+
+Try one controlled configuration failure on Linux or WSL. This uses the
+**checksum-verified 1.2.0 release** and the checked-in example. No account, Go
+installation or root access is needed.
+
+```bash
+git clone --depth 1 https://github.com/ClusterPilot-System/worldbisect.git
+cd worldbisect
+bash docs/marketing/first-diagnosis.sh
+```
+
+The expected result is **`PROVEN` → `config.txt`**: restoring the file
+repairs the check, and reversing that change brings the failure back. The
+script executes the proof checks and prints their real result. It downloads
+the binary into a temporary directory and removes it and the captures on exit.
+
+Read the [script, requirements and result explanation](docs/first-diagnosis.md).
+The demo uses portable capture; download and execution time depend on your
+machine. Then choose one repeatable check from your project for the CI setup.
+
+Using reviewdog? The [tested file-level integration](docs/integrations/reviewdog.md)
+preserves the proof boundary and explains when a diagnosis cannot become an
+inline annotation.
 
 ## A useful answer to a failed check
 
@@ -80,13 +104,14 @@ production-incident debugger. Read the [limitations](docs/limitations.md).
 
 ## Try it, improve it, share a useful failure
 
-- Run the [public CI demo](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/ci-baseline-demo.yml).
+- Inspect the [public CI demo runs](https://github.com/ClusterPilot-System/worldbisect/actions/workflows/ci-baseline-demo.yml).
 - Read the [Node.js, C and upstream Python integration checks](docs/integration-validation.md).
-- Tell us [which CI check you would try first](https://github.com/ClusterPilot-System/worldbisect/issues/58).
+- Tell us [which check you tried and where you got stuck](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml).
 - Ask a question in [Discussions](https://github.com/ClusterPilot-System/worldbisect/discussions).
 - Share a [sanitized user report](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=user-report.yml).
 - Pick a [good first issue](https://github.com/ClusterPilot-System/worldbisect/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22).
 
+The [feedback guide](docs/marketing/feedback.md) helps you choose the right channel.
 If WorldBisect is useful to you, a GitHub star helps other developers discover it.
 Bug reports and reproducible examples help make it better.
 
@@ -199,7 +224,7 @@ The failing run was repaired by changing the detected factor, and the failure re
 
 ## Confirmed or suspected cause
 
-- `workspace:config.txt` — workspace file "config.txt" differs between the successful and failing run
+- `workspace:<factor-id>` — workspace file "config.txt" differs between the successful and failing run
 
 ## Next steps
 
@@ -210,6 +235,7 @@ The failing run was repaired by changing the detected factor, and the failure re
 5. If the command still fails, create fresh good and bad captures and attach this analysis ID when contacting support.
 ```
 
+Factor IDs are generated; the readable finding identifies `config.txt`.
 The text report is written for operators who need an actionable answer. It
 also includes a proof explanation, evidence boundaries, and technical IDs for
 support. Use `--format json` when a machine needs the stable structured

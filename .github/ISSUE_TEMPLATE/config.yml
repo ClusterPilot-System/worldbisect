@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: First diagnosis and feedback
+    url: https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/first-diagnosis.md
+    about: Run a controlled example with the verified release binary, then choose your first CI check.
   - name: Security vulnerability
     url: https://github.com/ClusterPilot-System/worldbisect/security/advisories/new
     about: Report vulnerabilities privately. Do not open a public issue.
