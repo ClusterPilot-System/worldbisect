@@ -139,7 +139,7 @@ runs:
   - name: Run automatic CI diagnosis
     id: ci
     if: inputs.mode == 'ci'
-    uses: ClusterPilot-System/worldbisect/actions/ci@e05d1b12304674ce6c79d0b93828e833e6419bdd
+    uses: ClusterPilot-System/worldbisect/actions/ci@6eea7f0b29b25353a42408aabaef06531a2bd68c
     with:
       command: ${{ inputs.command }}
       files: ${{ inputs.files }}
@@ -153,7 +153,7 @@ runs:
   - name: Compare explicit workspaces
     id: compare
     if: inputs.mode == 'compare'
-    uses: ClusterPilot-System/worldbisect/actions/compare@e05d1b12304674ce6c79d0b93828e833e6419bdd
+    uses: ClusterPilot-System/worldbisect/actions/compare@6eea7f0b29b25353a42408aabaef06531a2bd68c
     with:
       command: ${{ inputs.command }}
       good-workspace: ${{ inputs.good-workspace }}

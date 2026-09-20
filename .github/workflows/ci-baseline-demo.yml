@@ -36,7 +36,7 @@ jobs:
         id: compare
         uses: ./
         with:
-          command: /bin/sh ./check.sh
+          command: /bin/bash ./check.sh
           good-workspace: build/compare-good
           bad-workspace: build/compare-bad
           artifact-name: root-compare-compatibility
