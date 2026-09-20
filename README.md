@@ -11,15 +11,10 @@ isolated copies, and tests which differences explain the failure. Its opt-in
 GitHub Action can save the working inputs automatically.
 
 **Start here:** [First diagnosis](docs/first-diagnosis.md) · [Add it to CI](docs/ci-baselines.md) ·
-[GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis) ·
+[GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1) ·
 [Team report hub preview](docs/team-hub.md) · [Evidence and limits](docs/proof-boundary.md)
 
 ## Get your first diagnosis
-
-Engine [1.2.1 is released](https://github.com/ClusterPilot-System/worldbisect/releases/tag/v1.2.1).
-The [release demo is verified](docs/first-diagnosis.md); `action-v1.0.1`
-publication is still pending. See [publication status](docs/marketplace.md)
-before using the Action examples.
 
 Try one controlled configuration failure on Linux or WSL. This uses the
 **checksum-verified 1.2.1 release** and the checked-in example. No account, Go
@@ -71,7 +66,7 @@ steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     with:
       persist-credentials: false
-  - uses: ClusterPilot-System/worldbisect@action-v1.0.1 # immutable Action release
+  - uses: ClusterPilot-System/worldbisect@db6b33f891779cf8e636393cf0b6afb242f6a282 # action-v1.0.1
     with:
       mode: ci
       command: '["./ci/check.sh"]'
@@ -86,10 +81,11 @@ No manually prepared `good` and `bad` folders are needed.
 
 The example is a job fragment; see the [complete workflow](docs/ci-baselines.md)
 for triggers, optional PR comments, retention and permissions. The
-[Marketplace listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis)
-already exists; publication of `action-v1.0.1` is planned. Its Action revision
-is separate from the **1.2.1 diagnosis engine** selected by these examples.
-See [Action installation and versioning](docs/marketplace.md).
+[version-specific Marketplace listing](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1)
+selects the published **Action 1.0.1**, pinned above to its full commit SHA.
+It downloads the checksum-verified **1.2.1 diagnosis engine**. The generic
+Marketplace latest button currently selects the engine release; use the linked
+Action version or the exact pin above. See [installation and versioning](docs/marketplace.md).
 
 **Select safe files deliberately.** Baselines contain their raw contents and are
 retained for seven days by default. Common credential paths and recognizable
@@ -266,7 +262,7 @@ Historical host state, packages, services and secrets are not restored.
 
 See the [setup and security guide](docs/ci-baselines.md) and the executable
 [CI baseline demo](.github/workflows/ci-baseline-demo.yml). The root Action's
-`mode: ci` is shown above using the planned immutable `action-v1.0.1` tag.
+`mode: ci` is shown above using the full commit pin for `action-v1.0.1`.
 The `actions/ci` companion path remains available. Existing `v1` and `v1.1.1`
 tags retain the original explicit-workspace interface.
 
@@ -285,7 +281,7 @@ and pin the Action to a reviewed commit or immutable release:
 ```yaml
 - name: Diagnose workspace difference
   id: worldbisect
-  uses: ClusterPilot-System/worldbisect@action-v1.0.1 # immutable Action release
+  uses: ClusterPilot-System/worldbisect@db6b33f891779cf8e636393cf0b6afb242f6a282 # action-v1.0.1
   with:
     command: ./check.sh
     good-workspace: demo/good
@@ -307,19 +303,18 @@ repository:
 ### Action trust pins
 
 The historical `v1` compatibility tag still points at the older 1.1.1 Action.
-The examples target the planned immutable `action-v1.0.1` tag for both `ci`
-and `compare` modes, with engine 1.2.1. Action `action-v1.0.0` remains unchanged
+The examples pin the full commit of published immutable `action-v1.0.1`
+for both `ci` and `compare` modes, with engine 1.2.1. Action `action-v1.0.0` remains unchanged
 and defaults to engine 1.2.0.
 The immutable `v1.2.0` binary release tag precedes the follow-up default update;
 when using that tag's Action code, pass the version and archive digest explicitly.
 
-For security-critical workflows, resolve the published Action release to its
-full reviewed commit SHA and explicitly verify the downloaded archive. The
-example uses the planned immutable `action-v1.0.1` tag and the Linux AMD64 engine
-archive; a release tag is distinct from a full commit pin:
+For security-critical workflows, use the full reviewed Action commit SHA and
+explicitly verify the downloaded archive. This example pins the `action-v1.0.1`
+commit and its Linux AMD64 1.2.1 engine archive:
 
 ```yaml
-- uses: ClusterPilot-System/worldbisect@action-v1.0.1 # immutable Action release
+- uses: ClusterPilot-System/worldbisect@db6b33f891779cf8e636393cf0b6afb242f6a282 # action-v1.0.1
   with:
     command: ./check.sh
     good-workspace: demo/good
@@ -372,7 +367,7 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: ClusterPilot-System/worldbisect@action-v1.0.1 # immutable Action release
+  - uses: ClusterPilot-System/worldbisect@db6b33f891779cf8e636393cf0b6afb242f6a282 # action-v1.0.1
     id: worldbisect
     with:
       version: 1.2.1

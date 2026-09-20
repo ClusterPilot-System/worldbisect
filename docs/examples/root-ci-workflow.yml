@@ -15,7 +15,7 @@ jobs:
         with:
           persist-credentials: false
       # Copy these two example files from WorldBisect, or select your own safe check.
-      - uses: ClusterPilot-System/worldbisect@action-v1.0.1 # immutable Action release
+      - uses: ClusterPilot-System/worldbisect@db6b33f891779cf8e636393cf0b6afb242f6a282 # action-v1.0.1
         with:
           mode: ci
           command: '["./examples/ci-baseline/check.sh"]'

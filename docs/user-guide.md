@@ -207,12 +207,12 @@ the Markdown/JSON/JUnit/SARIF reports, certificate, and redacted diagnostic
 bundle as one artifact. It never collects kubeconfigs, credentials, or other
 files outside those workspaces automatically.
 
-This example targets the planned immutable `action-v1.0.1` release and engine
-1.2.1. Check [publication status](marketplace.md) before use.
+This example pins the full commit of published immutable `action-v1.0.1` and
+engine 1.2.1. See [installation and versioning](marketplace.md).
 
 ```yaml
 - name: Diagnose workspace difference
-  uses: ClusterPilot-System/worldbisect@action-v1.0.1 # immutable Action release
+  uses: ClusterPilot-System/worldbisect@db6b33f891779cf8e636393cf0b6afb242f6a282 # action-v1.0.1
   with:
     command: ./ci/check.sh
     good-workspace: fixtures/good

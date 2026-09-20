@@ -31,10 +31,15 @@ checks exercised official 1.2.0 binaries on both architectures, and the
 real-workload job repeated all three diagnoses with the checksum-pinned 1.2.0
 AMD64 release. Those results remain historical 1.2.0 evidence.
 
-The next release-consumption update targets 1.2.1 for both architecture contracts
-and the AMD64 workload diagnoses. A successful 1.2.1 run must be linked here
-before claiming those checks passed for the new release. The workload artifact
-is `released-integration-results.json`.
+Engine 1.2.1 consumption is verified at the Action release revision
+`db6b33f891779cf8e636393cf0b6afb242f6a282`. The
+[baseline workflow](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532408932)
+passed published-engine contracts on native AMD64 and ARM64. The
+[real-workload run](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532408980)
+passed the three diagnoses with the published engine and the reviewdog
+integration; its workload artifact is `released-integration-results.json`.
+[Full CI](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532408948)
+also passed at that revision.
 
 ## Reproduce
 
@@ -77,11 +82,28 @@ synthetic configuration and requires both `PROVEN` and a failed original check.
 It also requires a nonempty `baseline-run-id`. This verifies the GitHub API,
 permissions, artifact format, provenance checks and download path end to end.
 
-Verified example: [successful baseline run 35132417741](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35132417741)
+Historical 1.2.0 example: [successful baseline run 35132417741](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35132417741)
 was consumed by [regression run 35132454247](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35132454247),
 which asserted `status=PROVEN`, `outcome=failure`, and that exact baseline run ID.
 The verification job passes precisely because it confirms the deliberate failure
 and the diagnosis; the Action itself still returns the original check failure.
+
+The current `action-v1.0.1` revision
+`db6b33f891779cf8e636393cf0b6afb242f6a282` passed the same cross-run check with
+checksum-verified engine 1.2.1.
+[Baseline run 35532408932](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532408932)
+completed successfully; [dispatcher 35532430174](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532430174)
+started [controlled regression 35532434501](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532434501).
+The regression found the prior baseline and reported `PROVEN`, while preserving
+`outcome=failure` and the original check's exit code 1. Its verification job
+succeeded because those assertions matched the deliberate failure.
+
+The same revision passed [live GitHub OIDC verification](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532408886)
+and [CodeQL](https://github.com/ClusterPilot-System/worldbisect/actions/runs/35532409024).
+The two previously tracked CodeQL alerts were closed as fixed;
+[issue #70](https://github.com/ClusterPilot-System/worldbisect/issues/70) records
+the resolved path-binding work. These checks do not establish a hosted SaaS or
+verify client-reported causal evidence in the team hub.
 
 ## What remains outside this evidence
 
