@@ -29,7 +29,7 @@ class OIDCPublisherTest(unittest.TestCase):
         for bad in [base.replace("https:", "http:"), base.replace(".com/", ".com.evil.test/"),
                     base.replace("run-actions-1.actions.githubusercontent.com", "127.0.0.1"),
                     base.replace("https://", "https://user:pass@"), base + "&audience=evil",
-                    base + "#fragment", base.replace("/idtoken?", "/other?"),
+                    base + "#fragment", base.replace("/idtoken?", "/bad\\route?"),
                     base.replace(".com/", ".com:444/"), base + "&api-version=1.0"]:
             with self.subTest(url=bad), self.assertRaises(ValueError):
                 publisher.identity_url(bad, audience)
@@ -79,7 +79,7 @@ class OIDCPublisherTest(unittest.TestCase):
         cases = [
             ("", "OIDC_URL_MISSING"),
             ("https://secret.example/a/idtoken?api-version=2.0", "OIDC_URL_HOST"),
-            (base.replace("/idtoken?", "/secret-path?"), "OIDC_URL_PATH"),
+            (base.replace("/idtoken?", "/secret\\path?"), "OIDC_URL_PATH"),
             (base + "&secret-query=secret-value", "OIDC_URL_QUERY"),
             (base.replace(".com/", ".com:secret-port/"), "OIDC_URL_FORMAT"),
         ]
@@ -96,6 +96,21 @@ class OIDCPublisherTest(unittest.TestCase):
             self.assertEqual(publisher.safe_error_code(raised.exception), expected)
         self.assertEqual(publisher.safe_error_code(ValueError("secret-token-value")), "PUBLISHER_ERROR")
         self.assertEqual(publisher.safe_error_code(publisher.PublisherError("secret-token-value")), "PUBLISHER_ERROR")
+
+    def test_provider_selected_routes_preserve_the_trusted_origin_boundary(self):
+        for path in ("/a/idtoken", "/a/_apis/token/identity", "/oidc/token", "/nested/provider/route/"):
+            url = "https://run-actions-1.actions.githubusercontent.com" + path + "?api-version=2.0"
+            result = publisher.identity_url(url, "https://hub.example/team")
+            self.assertEqual(urllib.parse.urlsplit(result).path, path)
+            self.assertEqual(urllib.parse.urlsplit(result).hostname, "run-actions-1.actions.githubusercontent.com")
+            for unsafe in (url.replace(".com/", ".com.attacker.example/"), url.replace("https:", "http:"),
+                           url.replace("https://", "https://user:secret@"), url + "#fragment"):
+                with self.subTest(path=path), self.assertRaises(publisher.PublisherError):
+                    publisher.identity_url(unsafe, "https://hub.example/team")
+        for path in ("", "/bad\\path", "/bad path", "/bad\tpath", "/bad\npath", "/bad\x7fpath"):
+            with self.subTest(path=path), self.assertRaises(publisher.PublisherError):
+                publisher.identity_url("https://run-actions-1.actions.githubusercontent.com" + path + "?api-version=2.0",
+                                       "https://hub.example/team")
 
     def test_live_helper_prints_only_fixed_diagnostic_code(self):
         env = dict(os.environ, GITHUB_ACTIONS="true", GITHUB_SERVER_URL="https://github.com", GITHUB_EVENT_NAME="push",

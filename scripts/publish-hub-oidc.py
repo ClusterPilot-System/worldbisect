@@ -57,7 +57,11 @@ def identity_url(raw, audience):
         raise PublisherError("OIDC_URL_ORIGIN")
     if not re.fullmatch(r"[a-z0-9.-]+\.actions\.githubusercontent\.com", host):
         raise PublisherError("OIDC_URL_HOST")
-    if not url.path.endswith("/idtoken"):
+    # GitHub's runner supplies GenerateIdTokenUrl and its official toolkit treats
+    # the route as opaque. A fixed /idtoken suffix is not a provider contract.
+    # Keep transport and origin restrictions; never follow a provider redirect.
+    if (not url.path.startswith("/") or "\\" in url.path or
+            any(ord(c) < 33 or ord(c) == 127 for c in raw)):
         raise PublisherError("OIDC_URL_PATH")
     try:
         aud = urllib.parse.urlsplit(audience)
