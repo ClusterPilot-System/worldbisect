@@ -38,3 +38,7 @@ jobs:
         run: go build ./...
       - name: Analyze
         uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          # Retain the original Go analysis identity so historical findings
+          # receive fresh scan results instead of remaining stale after renames.
+          category: /language:go

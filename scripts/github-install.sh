@@ -11,7 +11,7 @@ if [[ -z "$binary" ]]; then
   esac
   sha256=${INPUT_SHA256:-}
   if [[ -z "$sha256" ]]; then
-    if [[ "${INPUT_REPOSITORY:-ClusterPilot-System/worldbisect}" != "ClusterPilot-System/worldbisect" || ( "$version" != "1.1.0" && "$version" != "1.1.1" && "$version" != "1.2.0" ) ]]; then
+    if [[ "${INPUT_REPOSITORY:-ClusterPilot-System/worldbisect}" != "ClusterPilot-System/worldbisect" || ( "$version" != "1.1.0" && "$version" != "1.1.1" && "$version" != "1.2.0" && "$version" != "1.2.1" ) ]]; then
       fail 'sha256 is required for custom repositories and release versions'
     fi
     case "$version/$arch" in
@@ -21,6 +21,8 @@ if [[ -z "$binary" ]]; then
       1.1.1/arm64) sha256=64362505a4593b7e69fbb85a1e28d6d87db1fe2e74301ffc146487f1b0c655d7 ;;
       1.2.0/amd64) sha256=632370e3d3b02b31912c252d6d24d01a4f788f6f350cf8c84876f44d51c0615e ;;
       1.2.0/arm64) sha256=188c719bd231e7236280a442ea621521077672ace317f4c8f5a39abd55459352 ;;
+      1.2.1/amd64) sha256=603884407d628900cb20dd33b64610af221bd029e3b08b5b2ff0d41f7bae4467 ;;
+      1.2.1/arm64) sha256=ea6608f41404cf7e0303aeab9e64aa0b42794143fbf2b9ae567e78541ff36d08 ;;
     esac
     echo "worldbisect action: using built-in verified SHA-256 for v${version} Linux ${arch}" >&2
   fi
