@@ -32,7 +32,10 @@ Do not put credentials into URLs, screenshots, shell arguments or repository fil
 The UI shows repository/check filters, the latest diagnoses and four answers:
 finding, experiments, reported evidence level and next step. **Reported** means
 the submitting CI or person asserted it. The hub does not independently verify
-the original experiments, a signed certificate or the uploader's CI identity.
+the original experiments or a signed diagnosis certificate. Basic opaque-token
+uploads carry no verified CI origin. The optional
+[GitHub Actions identity flow](hub-ci-identity.md) verifies the configured publisher
+and binds repository, commit and run metadata; it does not verify the experiments.
 
 ## Publish a diagnosis deliberately
 

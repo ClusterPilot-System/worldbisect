@@ -2,7 +2,7 @@ name: Hub identity verification
 
 on:
   push:
-    branches: [main, fix/github-oidc-interoperability]
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   github-oidc:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/github-oidc-interoperability')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
