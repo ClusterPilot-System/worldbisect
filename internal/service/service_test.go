@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -128,5 +129,167 @@ func TestExecutableInPlaceModificationDetected(t *testing.T) {
 	}
 	if _, err := service.runner.Run(context.Background(), runner.Request{Command: []string{executable}, Timeout: time.Second, Executable: binding}); err == nil {
 		t.Fatal("modified executable accepted")
+	}
+}
+
+func TestWorkingDirectoryRejectsTraversalAndSymlinkEscape(t *testing.T) {
+	service, executable, allowed := serviceFixture(t)
+	outside := allowed + "-outside"
+	if err := os.Mkdir(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(allowed, "escape")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		outside,
+		allowed + "/../" + filepath.Base(outside),
+		link,
+		"../" + filepath.Base(outside),
+	} {
+		t.Run(path, func(t *testing.T) {
+			binding, err := service.authorizeExecution(model.CommandSpec{Arguments: []string{executable}, Directory: path})
+			if binding != nil {
+				binding.ExecutableFile.Close()
+				binding.DirectoryFile.Close()
+			}
+			if err == nil {
+				t.Fatal("working directory outside the configured tree was authorized")
+			}
+		})
+	}
+}
+
+func TestDirectoryOpenRejectsEscapeAfterCanonicalization(t *testing.T) {
+	_, _, allowed := serviceFixture(t)
+	directory := filepath.Join(allowed, "nested")
+	if err := os.Mkdir(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relative, err := filepath.Rel(allowed, resolved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Replace a validated component before the open, exactly at the old
+	// check/use boundary. The open itself must stay inside the configured root.
+	if err := os.Rename(directory, directory+"-original"); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, directory); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{relative, "..", "../" + filepath.Base(outside), outside} {
+		file, err := openDirectoryBeneath(allowed, path)
+		if file != nil {
+			file.Close()
+		}
+		if err == nil {
+			t.Fatalf("bounded open accepted escaping path %q", path)
+		}
+	}
+}
+
+func TestAllowsNestedWorkingDirectory(t *testing.T) {
+	service, executable, allowed := serviceFixture(t)
+	directory := filepath.Join(allowed, "nested", "workspace")
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	binding, err := service.authorizeExecution(model.CommandSpec{Arguments: []string{executable}, Directory: directory})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer binding.ExecutableFile.Close()
+	defer binding.DirectoryFile.Close()
+	if binding.DirectoryPath != directory || binding.ExecutablePath != executable {
+		t.Fatal("binding did not preserve the authorized canonical paths")
+	}
+	if _, err := service.runner.Run(context.Background(), runner.Request{Command: []string{executable}, Timeout: time.Second, Executable: binding}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRejectsNonDirectoryTargetsWithoutBlocking(t *testing.T) {
+	for _, kind := range []string{"regular", "fifo"} {
+		t.Run(kind, func(t *testing.T) {
+			service, executable, allowed := serviceFixture(t)
+			path := filepath.Join(allowed, "not-a-directory")
+			if kind == "fifo" {
+				if err := syscall.Mkfifo(path, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.WriteFile(path, []byte("not a directory"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			expectAuthorizationRejection(t, service, executable, path)
+		})
+	}
+}
+
+func TestRejectsReplacedWorkingDirectoryRootWithoutBlocking(t *testing.T) {
+	service, executable, allowed := serviceFixture(t)
+	if err := os.Remove(allowed); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(allowed, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	expectAuthorizationRejection(t, service, executable, allowed)
+}
+
+func TestRejectsReplacedExecutableWithoutBlocking(t *testing.T) {
+	for _, kind := range []string{"fifo", "directory", "non-executable", "symlink"} {
+		t.Run(kind, func(t *testing.T) {
+			service, executable, allowed := serviceFixture(t)
+			if err := os.Remove(executable); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			switch kind {
+			case "fifo":
+				err = syscall.Mkfifo(executable, 0o700)
+			case "directory":
+				err = os.Mkdir(executable, 0o700)
+			case "non-executable":
+				err = os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0o600)
+			case "symlink":
+				target := executable + "-replacement"
+				if err := os.WriteFile(target, []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				err = os.Symlink(target, executable)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectAuthorizationRejection(t, service, executable, allowed)
+		})
+	}
+}
+
+func expectAuthorizationRejection(t *testing.T, service *Service, executable, directory string) {
+	t.Helper()
+	done := make(chan error, 1)
+	go func() {
+		binding, err := service.authorizeExecution(model.CommandSpec{Arguments: []string{executable}, Directory: directory})
+		if binding != nil {
+			binding.ExecutableFile.Close()
+			binding.DirectoryFile.Close()
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("non-directory workspace or unsafe executable was accepted")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("authorization blocked while opening a special file")
 	}
 }

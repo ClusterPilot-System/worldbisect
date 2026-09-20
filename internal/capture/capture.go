@@ -49,14 +49,39 @@ func (capturer *Capturer) Capture(ctx context.Context, request Request) (*model.
 }
 
 func (capturer *Capturer) CaptureWithBinding(ctx context.Context, request Request, binding *runner.ExecutionBinding) (*model.Capture, error) {
+	if binding == nil || binding.DirectoryFile == nil {
+		return nil, errors.New("an execution binding with a directory descriptor is required")
+	}
 	return capturer.capture(ctx, request, binding)
 }
 
 func (capturer *Capturer) capture(ctx context.Context, request Request, binding *runner.ExecutionBinding) (*model.Capture, error) {
 	limits := request.Limits.WithDefaults()
-	root, err := workspace.CanonicalRoot(request.Workspace)
-	if err != nil {
-		return nil, err
+	var root string
+	var boundRoot *os.Root
+	var err error
+	if binding != nil {
+		if !filepath.IsAbs(binding.DirectoryPath) {
+			return nil, errors.New("bound workspace metadata must contain an absolute directory path")
+		}
+		boundRoot, err = workspace.OpenBoundRoot(binding.DirectoryFile)
+		if err != nil {
+			return nil, err
+		}
+		defer boundRoot.Close()
+		root = binding.DirectoryPath
+		request.Command.Directory = binding.DirectoryPath
+	} else {
+		root, err = workspace.CanonicalRoot(request.Workspace)
+		if err != nil {
+			return nil, err
+		}
+	}
+	scan := func() (model.WorkspaceManifest, error) {
+		if boundRoot != nil {
+			return workspace.ScanRoot(boundRoot, root, capturer.store, limits.MaxWorkspaceFiles, limits.MaxWorkspaceBytes)
+		}
+		return workspace.Scan(root, capturer.store, limits.MaxWorkspaceFiles, limits.MaxWorkspaceBytes)
 	}
 	if len(request.Command.Arguments) == 0 {
 		return nil, errors.New("command is required")
@@ -75,7 +100,7 @@ func (capturer *Capturer) capture(ctx context.Context, request Request, binding 
 	sanitizedEnvironment, secretEvidence := redact.Environment(request.Command.Environment, secretKey)
 	request.Command.Environment = sanitizedEnvironment
 
-	before, err := workspace.Scan(root, capturer.store, limits.MaxWorkspaceFiles, limits.MaxWorkspaceBytes)
+	before, err := scan()
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +116,7 @@ func (capturer *Capturer) capture(ctx context.Context, request Request, binding 
 		Executable:     binding,
 	})
 	finished := time.Now().UTC()
-	after, scanErr := workspace.Scan(root, capturer.store, limits.MaxWorkspaceFiles, limits.MaxWorkspaceBytes)
+	after, scanErr := scan()
 	if scanErr != nil {
 		return nil, scanErr
 	}
@@ -112,7 +137,11 @@ func (capturer *Capturer) capture(ctx context.Context, request Request, binding 
 	}
 	if result != nil {
 		captureValue.Result = *result
-		captureValue.OracleResult = oracle.Evaluate(request.Oracle, *result, root)
+		if boundRoot != nil && request.Oracle.Kind == "file_digest" {
+			captureValue.OracleResult = evaluateManifestFileOracle(request.Oracle, after)
+		} else {
+			captureValue.OracleResult = oracle.Evaluate(request.Oracle, *result, root)
+		}
 		captureValue.ConsultedPaths = normalizeConsulted(root, result.ConsultedPaths)
 		captureValue.EvidenceBoundaries = append(captureValue.EvidenceBoundaries, result.Boundaries...)
 	}
@@ -214,4 +243,19 @@ func ValidateCapture(captureValue *model.Capture) error {
 		return fmt.Errorf("invalid capture identity")
 	}
 	return nil
+}
+
+// Bound file oracles use the captured regular-file digest, so evaluation cannot
+// reopen a caller-controlled workspace path after the descriptor-bound scan.
+func evaluateManifestFileOracle(spec model.Oracle, manifest model.WorkspaceManifest) model.OracleResult {
+	relative := filepath.Clean(filepath.FromSlash(spec.File))
+	if spec.File == "" || !filepath.IsLocal(relative) || relative == "." {
+		return model.OracleResult{Passed: false, Detail: "oracle file must be a relative captured regular file"}
+	}
+	for _, entry := range manifest.Entries {
+		if entry.Path == filepath.ToSlash(relative) && entry.Type == "file" {
+			return model.OracleResult{Passed: entry.Digest == spec.Digest, Detail: "file sha256=" + entry.Digest}
+		}
+	}
+	return model.OracleResult{Passed: false, Detail: "oracle file is not a captured regular file"}
 }

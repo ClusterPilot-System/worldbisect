@@ -3,9 +3,20 @@
   "repository": "reviewdog/reviewdog",
   "upstream_readme_blob_sha": "9e786b03e63c170730ddb0f63269461bd064d576",
   "action": "create_issue",
-  "title": "docs: explain how to inspect SARIF locations before PR reporting",
-  "published": false,
-  "http_status": 403,
-  "message": "Resource not accessible by integration",
-  "documentation_url": "https://docs.github.com/rest/issues/issues#create-an-issue"
+  "title": "docs: add a local SARIF path check before configuring PR reporting",
+  "published": true,
+  "issue_url": "https://github.com/reviewdog/reviewdog/issues/2821",
+  "issue_number": 2821,
+  "issue_state": "open",
+  "published_at": "2026-09-20T18:46:21Z",
+  "author": "JossefMo1",
+  "publication_method": "authenticated_github_web_ui",
+  "patch_status": "prepared_awaiting_maintainer_feedback",
+  "pull_request_published": false,
+  "upstream_acceptance_verified": false,
+  "prior_connector_attempt": {
+    "http_status": 403,
+    "message": "Resource not accessible by integration",
+    "documentation_url": "https://docs.github.com/rest/issues/issues#create-an-issue"
+  }
 }

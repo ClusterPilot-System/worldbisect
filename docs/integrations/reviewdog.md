@@ -125,11 +125,13 @@ and diff filters. The proposal does not advertise WorldBisect.
 
 - [Exact README patch](../../tests/integrations/reviewdog/upstream.patch), checked against README blob `9e786b03e63c170730ddb0f63269461bd064d576`.
 - [Complete submission text](../../tests/integrations/reviewdog/upstream-submission.md), including tested scope and project/AI-assistance disclosure.
-- [Publication status](../../tests/integrations/reviewdog/upstream-status.json): the GitHub connector rejected the documentation issue creation with HTTP **403**, `Resource not accessible by integration`. No issue or PR was published in this attempt.
+- [Published issue #2821](https://github.com/reviewdog/reviewdog/issues/2821): opened by `JossefMo1` on September 20 through the authenticated GitHub web UI. The README patch is prepared and awaits maintainer feedback; no upstream PR has been published or accepted.
+- [Publication status](../../tests/integrations/reviewdog/upstream-status.json) preserves the earlier GitHub connector rejection: HTTP **403**, `Resource not accessible by integration`. The later web publication does not establish external write access for that connector.
 
-To submit the patch later from an appropriately authorized fork, update that fork
+Follow the existing issue for maintainer feedback before preparing an upstream PR.
+To submit the patch from an appropriately authorized fork, update that fork
 from upstream, create a branch, run `git apply --check /path/to/upstream.patch`
 and then `git apply /path/to/upstream.patch`. Review the README diff before opening
 a PR against `reviewdog/reviewdog:master`; recheck the current contribution rules
-and search for a duplicate first. Do not work around the rejected connection by
-reusing unrelated credentials.
+and search for a duplicate first. Publication of the issue is not upstream
+acceptance or endorsement of WorldBisect.
