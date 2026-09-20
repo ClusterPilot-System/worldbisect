@@ -9,7 +9,7 @@ SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}
 export SOURCE_DATE_EPOCH
 BUILD_DATE=$(date -u -d "@$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -r "$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ)
 COMMIT=$(git rev-parse --short=12 HEAD 2>/dev/null || printf source)
-LDFLAGS="-s -w -X github.com/ClusterPilot-System/worldbisect/internal/version.Version=$VERSION -X github.com/ClusterPilot-System/worldbisect/internal/version.Commit=$COMMIT -X github.com/ClusterPilot-System/worldbisect/internal/version.Date=$BUILD_DATE"
+LDFLAGS="-s -w -X github.com/ClusterPilot-System/worldbisect/internal/version.Version=$VERSION -X github.com/ClusterPilot-System/worldbisect/internal/version.Commit=$COMMIT -X github.com/ClusterPilot-System/worldbisect/internal/version.BuildTime=$BUILD_DATE"
 
 rm -rf "$DIST"
 mkdir -p "$DIST"
@@ -53,7 +53,7 @@ for arch in amd64 arm64; do
     gzip -n -9 -c docs/man/worldbisect.1 > "$debroot/usr/share/man/man1/worldbisect.1.gz"
     gzip -n -9 -c docs/man/worldbisect.conf.5 > "$debroot/usr/share/man/man5/worldbisect.conf.5.gz"
     gzip -n -9 -c docs/man/worldbisectd.8 > "$debroot/usr/share/man/man8/worldbisectd.8.gz"
-    cp README.md CHANGELOG.md "$debroot/usr/share/doc/worldbisect/"
+    cp README.md CHANGELOG.md LICENSE NOTICE packaging/debian/copyright "$debroot/usr/share/doc/worldbisect/"
     cp packaging/systemd/worldbisectd.service "$debroot/lib/systemd/system/"
     cp packaging/tmpfiles.d/worldbisect.conf "$debroot/usr/lib/tmpfiles.d/"
     cp packaging/sysusers.d/worldbisect.conf "$debroot/usr/lib/sysusers.d/"
@@ -73,6 +73,7 @@ source_tmp=$(mktemp -d)
 source_stage="$source_tmp/worldbisect-$VERSION"
 mkdir -p "$source_stage"
 tar --exclude-vcs --exclude='./dist' --exclude='dist' --exclude='./bin' --exclude='bin' \
+    --exclude='./build' --exclude='build' --exclude='./coverage.out' --exclude='coverage.out' \
     --exclude='__pycache__' --exclude='*.pyc' --exclude='./.coverage' --exclude='.coverage' --exclude='./worldbisect' --exclude='./worldbisectd' \
     -C "$ROOT" -cf - . | tar -C "$source_stage" -xf -
 archive_tree "$source_stage" "$DIST/worldbisect-${VERSION}-source.tar.gz"

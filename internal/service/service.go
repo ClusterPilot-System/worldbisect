@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -162,14 +161,15 @@ func (service *Service) authorizeExecution(command model.CommandSpec) (*runner.E
 		return nil, errors.New("remote command must be an absolute path")
 	}
 	cleanRequested := filepath.Clean(requested)
-	allowed := false
+	authorizedExecutable := ""
 	for _, commandPath := range service.cfg.AllowedCommands {
 		if cleanRequested == commandPath {
-			allowed = true
+			// Open the configured allowlist entry, never the caller's path.
+			authorizedExecutable = commandPath
 			break
 		}
 	}
-	if !allowed {
+	if authorizedExecutable == "" {
 		return nil, fmt.Errorf("command %q is not allowed", requested)
 	}
 	if command.Directory == "" || !filepath.IsAbs(command.Directory) {
@@ -183,18 +183,19 @@ func (service *Service) authorizeExecution(command model.CommandSpec) (*runner.E
 	if err != nil {
 		return nil, err
 	}
-	allowedDirectory := false
+	allowedRoot, relativeDirectory := "", ""
 	for _, root := range service.cfg.AllowedWorkingDirectories {
-		if inside(root, resolvedDirectory) {
-			allowedDirectory = true
+		relative, err := filepath.Rel(root, resolvedDirectory)
+		if err == nil && filepath.IsLocal(relative) {
+			allowedRoot, relativeDirectory = root, relative
 			break
 		}
 	}
-	if !allowedDirectory {
+	if allowedRoot == "" {
 		return nil, fmt.Errorf("working directory %q is not allowed", command.Directory)
 	}
 
-	executableFile, err := openNoFollow(cleanRequested)
+	executableFile, err := openExecutable(authorizedExecutable)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +204,7 @@ func (service *Service) authorizeExecution(command model.CommandSpec) (*runner.E
 		executableFile.Close()
 		return nil, err
 	}
-	if executablePath != cleanRequested {
+	if executablePath != authorizedExecutable {
 		executableFile.Close()
 		return nil, errors.New("opened executable path does not match authorized path")
 	}
@@ -212,7 +213,7 @@ func (service *Service) authorizeExecution(command model.CommandSpec) (*runner.E
 		executableFile.Close()
 		return nil, err
 	}
-	directoryFile, err := os.Open(resolvedDirectory)
+	directoryFile, err := openDirectoryBeneath(allowedRoot, relativeDirectory)
 	if err != nil {
 		executableFile.Close()
 		return nil, err
@@ -231,23 +232,53 @@ func (service *Service) authorizeExecution(command model.CommandSpec) (*runner.E
 	return &runner.ExecutionBinding{
 		ExecutableFile: executableFile,
 		DirectoryFile:  directoryFile,
-		ExecutablePath: cleanRequested,
+		ExecutablePath: authorizedExecutable,
 		DirectoryPath:  resolvedDirectory,
 		Identity:       identity,
 	}, nil
 }
 
-func openNoFollow(path string) (*os.File, error) {
-	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+func openExecutable(configuredPath string) (*os.File, error) {
+	file, err := os.OpenFile(configuredPath, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
 	}
-	return os.NewFile(uintptr(fd), path), nil
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		file.Close()
+		return nil, errors.New("opened command must be a regular executable file")
+	}
+	return file, nil
 }
 
-func inside(root, candidate string) bool {
-	relative, err := filepath.Rel(root, candidate)
-	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+func openDirectoryBeneath(configuredRoot, relative string) (*os.File, error) {
+	if !filepath.IsLocal(relative) {
+		return nil, errors.New("working directory escapes its configured root")
+	}
+	// OpenRoot checks the file type after opening on Go 1.25. Require a
+	// directory in the initial syscall as well, so a replaced root cannot
+	// block authorization on a FIFO before the type check runs.
+	anchor, err := os.OpenFile(configuredRoot, os.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer anchor.Close()
+	anchorFD := fmt.Sprintf("/proc/self/fd/%d", anchor.Fd())
+	anchorPath, err := os.Readlink(anchorFD)
+	if err != nil {
+		return nil, err
+	}
+	if anchorPath != configuredRoot {
+		return nil, errors.New("opened working directory root does not match configured path")
+	}
+	root, err := os.OpenRoot(anchorFD)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	// Root constrains traversal during the open, including replacements after
+	// canonicalization. O_DIRECTORY rejects special files before opening them.
+	return root.OpenFile(relative, os.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NONBLOCK, 0)
 }
 
 func validateCaptureRequest(request model.CaptureJobRequest) error {

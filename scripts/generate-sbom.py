@@ -11,17 +11,27 @@ parser.add_argument("--version", required=True)
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parent.parent
 files = []
+file_sha1s = []
 for path in sorted(root.rglob("*")):
     if not path.is_file():
         continue
     relative = path.relative_to(root).as_posix()
-    if relative.startswith((".git/", "dist/", "bin/", "build/")) or relative == "coverage.out":
+    if (relative.startswith((".git/", "dist/", "bin/", "build/"))
+            or relative in (".git", "coverage.out", ".coverage", "worldbisect", "worldbisectd")
+            or path.name in (".gitattributes", ".gitignore")
+            or "__pycache__" in path.relative_to(root).parts or path.suffix == ".pyc"):
         continue
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    contents = path.read_bytes()
+    digest = hashlib.sha256(contents).hexdigest()
+    sha1 = hashlib.sha1(contents).hexdigest()
+    file_sha1s.append(sha1)
     files.append({
         "SPDXID": "SPDXRef-File-" + hashlib.sha256(relative.encode()).hexdigest()[:16],
         "fileName": "./" + relative,
-        "checksums": [{"algorithm": "SHA256", "checksumValue": digest}],
+        "checksums": [
+            {"algorithm": "SHA256", "checksumValue": digest},
+            {"algorithm": "SHA1", "checksumValue": sha1},
+        ],
         "licenseConcluded": "Apache-2.0",
         "licenseInfoInFiles": ["Apache-2.0"],
         "copyrightText": "Copyright 2026 WorldBisect contributors",
@@ -48,7 +58,9 @@ document = {
         "licenseDeclared": "Apache-2.0",
         "copyrightText": "Copyright 2026 WorldBisect contributors",
         "packageVerificationCode": {
-            "packageVerificationCodeValue": hashlib.sha1("".join(item["checksums"][0]["checksumValue"] for item in files).encode()).hexdigest()
+            # SPDX 2.3 section 7.9 sorts SHA-1 values, not filenames.
+            # SHA-256 remains available for file and release integrity checks.
+            "packageVerificationCodeValue": hashlib.sha1("".join(sorted(file_sha1s)).encode("ascii")).hexdigest()
         },
     }],
     "files": files,

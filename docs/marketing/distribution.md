@@ -36,7 +36,7 @@ signal; do not promise 100 stars or trade contributions for them.
 | Channel | Useful contribution | Rules and next action |
 | --- | --- | --- |
 | [nektos/act](https://github.com/nektos/act) | Small, executed regression cases for CI failure handling. Our existing step-level `continue-on-error` retest is a relevant starting point. | The [contribution guide](https://github.com/nektos/act/blob/master/CONTRIBUTING.md) asks contributors to search existing issues and supply reproduction details. Usage questions belong in Discussions; code PRs target `master`, user-guide changes go to `nektos/act-docs`. Follow up on #900 only when there is a maintainer question or new evidence. Do not file a second report for the same behavior. |
-| [reviewdog](https://github.com/reviewdog/reviewdog) | The [executed integration](../integrations/reviewdog.md) maps one proven file cause to a useful reviewdog diagnostic. Raw analysis URIs are not source paths; the bounded adapter preserves the proof limits and refuses inconclusive results. | Verified locally with reviewdog 0.21.2: nine-experiment proof, one file diagnostic with `-filter-mode=file`, and error exit policy. Remote PR delivery is not verified. The [contribution guide](https://github.com/reviewdog/reviewdog/blob/master/.github/CONTRIBUTING.md) was checked and a generic SARIF-location documentation patch prepared. Its issue submission was rejected with HTTP 403; [exact patch and status](../integrations/reviewdog.md#upstream-documentation-contribution) are retained. Do not repeat the denied write or portray the result as a vulnerability. |
+| [reviewdog](https://github.com/reviewdog/reviewdog) | The [executed integration](../integrations/reviewdog.md) maps one proven file cause to a useful reviewdog diagnostic. Raw analysis URIs are not source paths; the bounded adapter preserves the proof limits and refuses inconclusive results. | Verified locally with reviewdog 0.21.2: nine-experiment proof, one file diagnostic with `-filter-mode=file`, and error exit policy. Remote PR delivery is not verified. The [contribution guide](https://github.com/reviewdog/reviewdog/blob/master/.github/CONTRIBUTING.md) was checked. [Documentation issue #2821](https://github.com/reviewdog/reviewdog/issues/2821) is published; the [generic README patch](../integrations/reviewdog.md#upstream-documentation-contribution) awaits maintainer feedback. No upstream PR has been published or accepted. Respond to substantive feedback; do not portray this documentation finding as a vulnerability. |
 | [Show HN](https://news.ycombinator.com/shownew) | Jo can personally present an executable example and discuss the trade-offs of intervention-based diagnosis. | [Show HN rules](https://news.ycombinator.com/showhn.html) require something people can try, preferably without signup, and the maker's availability for discussion. [HN guidelines](https://news.ycombinator.com/newsguidelines.html) prohibit generated or AI-edited text and soliciting votes. Jo must write the submission and discussion himself; marketing agents must not publish generated copy there. A future SaaS signup page alone is unsuitable. |
 
 The act and reviewdog repositories were not archived when checked. Reviewdog had
@@ -48,6 +48,7 @@ rules before any later submission.
 
 - [actions/runner #2418, comment 5702898846](https://github.com/actions/runner/issues/2418#issuecomment-5702898846): exists under `JossefMo1`; includes public CI failure evidence and a tested dispatch-input workaround. Do not duplicate it or describe a runner patch as verified.
 - [nektos/act #900, comment 5703159971](https://github.com/nektos/act/issues/900#issuecomment-5703159971): exists under `JossefMo1`; reports the v0.2.89 Linux host-execution retest and its limits. This does not validate the original macOS/Docker/Terraform setup.
+- [reviewdog #2821](https://github.com/reviewdog/reviewdog/issues/2821): opened by `JossefMo1` on September 20 with measured SARIF path/filter behavior, a generic README patch and project/AI-assistance disclosure. The issue is open; the patch awaits maintainer feedback. No upstream PR or endorsement is claimed.
 - [WorldBisect preview update in #58](https://github.com/ClusterPilot-System/worldbisect/issues/58#issuecomment-5750580641): published by `JossefMo1` on September 20, with source setup, implementation and validation links. It asks which two repositories/checks a pilot would review together. This is an announcement, not evidence of customer adoption. The launch issue is now closed; the merged [feedback guide](feedback.md) and [getting-started form](https://github.com/ClusterPilot-System/worldbisect/issues/new?template=getting-started.yml) are the ongoing intake routes.
 - [Action release announcement #68](https://github.com/ClusterPilot-System/worldbisect/discussions/68): the repository's published announcement for `action-v1.0.0`. Check this thread before posting another release announcement.
 
@@ -58,8 +59,13 @@ new discussion is needed. New setup attempts have their own short issue form.
 Earlier external writes returned `403 Resource not accessible by integration`.
 The comments' current existence does not prove that this connection now has
 general external write access. A single new attempt to create the useful reviewdog
-documentation issue on September 20 returned the same HTTP 403. No reviewdog
-issue or PR was published; the complete proposal is retained in the repository.
+documentation issue on September 20 returned the same HTTP 403. The user then
+authenticated through GitHub's web UI, which offered the issue form, and
+[issue #2821](https://github.com/reviewdog/reviewdog/issues/2821) was published
+through that authorized session. The connector rejection remains recorded in
+the [publication status](../../tests/integrations/reviewdog/upstream-status.json).
+Only the issue is published; the prepared patch has not been submitted as an
+upstream PR or accepted.
 
 ## Root Action distribution and Marketplace
 

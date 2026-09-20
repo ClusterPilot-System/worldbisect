@@ -6,6 +6,42 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [1.2.1]
+
+### Fixed
+
+- Bind optional daemon file opens and workspace capture to authorized directory
+  descriptors, and reject special files without blocking. Bound `file_digest`
+  rules read captured regular files; links and missing entries return an explicit
+  failed result.
+- Accept GitHub's provider-selected OIDC request route and direct-job
+  `job_workflow_ref` when it exactly matches the configured workflow. Preserve
+  signature, issuer, audience, repository, branch and replay checks; emit only
+  fixed diagnostic categories on publication failures.
+- Exclude generated build state and Python caches from source/SBOM artifacts,
+  populate deterministic binary build timestamps, and include existing license,
+  notice and copyright files in Debian packages.
+- Compute the SPDX 2.3 package verification code from sorted file SHA-1
+  checksums while retaining SHA-256 file and release checksums.
+
+### Added
+
+- Experimental, source-built team hub with isolated workspaces, named identities,
+  scoped credentials, atomic revocation/reload, bounded audit records, verified
+  GitHub Actions publisher origin and encrypted backup/recovery. Diagnosis
+  confidence remains client-reported; this preview is not a hosted SaaS.
+- Live GitHub identity checks, restart replay protection tests and encrypted
+  recovery checks, including a restore quarantine for previously issued tokens.
+- Root Action `mode: ci`, first-diagnosis onboarding and a tested reviewdog SARIF
+  integration. Marketplace Action `action-v1.0.0` is versioned separately from
+  engine archives; existing verified engine download pins remain unchanged.
+
+### Changed
+
+- Update pinned CI tools and run real age encryption checks in the release gate.
+- Release binary archives continue to contain the CLI and diagnostic daemon;
+  the team hub remains available through the source distribution.
+
 ## [1.2.0]
 
 ### Added
