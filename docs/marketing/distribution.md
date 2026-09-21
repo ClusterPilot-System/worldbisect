@@ -4,6 +4,25 @@ Research checked on **2026-09-20**. This document separates verified activity
 from proposed follow-up work. GitHub reported **3 stars** on that date; no
 customer adoption or future star count is inferred from it.
 
+## September 21 follow-up
+
+GitHub still reported **3 stars**. The existing reviewdog, act and runner
+contributions had no new maintainer replies, so no duplicate follow-up comments
+were posted. This is a lack of new feedback, not evidence of acceptance.
+
+The public [demo repository](https://github.com/ClusterPilot-System/worldbisect-demo)
+linked by the main README was still teaching older releases. The refresh in
+[demo PR #2](https://github.com/ClusterPilot-System/worldbisect-demo/pull/2)
+uses immutable Action 1.0.1 and engine 1.2.1, explains how visitors can fork and
+run it, and verifies the actual report before showing the cause.
+The [public manual run](https://github.com/ClusterPilot-System/worldbisect-demo/actions/runs/35605327590)
+passed: `PROVEN`, `config.txt`, nine experiments and forward/reverse/minimality
+checks. This controlled example demonstrates explicit comparison; it does not
+measure customer adoption or automatic cross-run baseline capture. The demo's
+README links the run and the separate CI-baseline setup so visitors can choose
+the relevant next step. This is a concrete onboarding improvement; no external
+endorsement or additional stars are claimed.
+
 ## Positioning and near-term outcome
 
 **Your CI passed yesterday. Today it fails. Test what changed.**

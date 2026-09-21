@@ -22,6 +22,7 @@ node --check web/hub/app.js
 node --test web/hub/app.test.js
 python3 -m unittest discover -s scripts -p 'test_*hub*.py'
 python3 -m unittest discover -s scripts -p 'test_generate_sbom.py'
+timeout --foreground 120s make test-hub-probe
 python3 - <<'PY'
 import json, pathlib
 for path in [pathlib.Path('configs/worldbisect.example.json')]:

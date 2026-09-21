@@ -49,6 +49,9 @@ read-only inside the running service's mount namespace.
 - Use a dedicated low-volume synthetic workspace to publish, read and delete a
   harmless report periodically. Authenticate through the same reverse proxy
   used by CI. Do not use a real customer workspace for this probe.
+  The [bounded lifecycle probe and timer](hub-monitoring.md) provide this check,
+  including workspace/scope validation, read-back and deletion verification.
+  Alert on missing results as well as failures; `/healthz` alone is insufficient.
 - Alert on sustained unexpected 5xx responses, failed retention/audit writes,
   repeated restarts, disk errors and low free space/inodes. Inspect
   `journalctl -u worldbisect-hub`; exclude submitted summaries and credentials
