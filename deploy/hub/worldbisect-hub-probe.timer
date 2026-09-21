@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodically verify WorldBisect report storage and deletion
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=60s
+AccuracySec=1s
+RandomizedDelaySec=5s
+Unit=worldbisect-hub-probe.service
+
+[Install]
+WantedBy=timers.target

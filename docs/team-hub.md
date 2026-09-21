@@ -8,6 +8,8 @@ tenant-isolation guarantee. The stable CLI and execution daemon are unchanged.
 The access extension adds [named identities, scopes, expiry, reload and audit](hub-access.md),
 [verified GitHub Actions publisher identity](hub-ci-identity.md), and
 [encrypted backup, recovery and operational runbooks](hub-operations.md).
+An optional [synthetic lifecycle monitor](hub-monitoring.md) verifies report
+storage, read-back and deletion in a separate monitoring workspace.
 The guide below remains the basic opaque-token path. Verified publisher identity
 does not independently verify a submitted diagnosis.
 

@@ -6,7 +6,7 @@ GO ?= go
 PYTHON ?= python3
 SOURCE_DATE_EPOCH ?= 0
 
-.PHONY: all build build-hub test-hub clean fmt check test test-race coverage e2e release install
+.PHONY: all build build-hub test-hub test-hub-probe clean fmt check test test-race coverage e2e release install
 
 all: build
 
@@ -19,6 +19,10 @@ test-hub:
 	$(PYTHON) -m unittest discover -s scripts -p 'test_*hub*.py'
 	node --check web/hub/app.js
 	node --test web/hub/app.test.js
+
+test-hub-probe: build-hub
+	$(PYTHON) -m unittest discover -s scripts -p 'test_hub_probe.py'
+	$(PYTHON) scripts/hub-probe-e2e.py --binary bin/worldbisect-hub
 
 build:
 	mkdir -p bin

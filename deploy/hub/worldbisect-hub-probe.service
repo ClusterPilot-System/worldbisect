@@ -1,0 +1,39 @@
+[Unit]
+Description=WorldBisect synthetic report lifecycle probe
+Documentation=https://github.com/ClusterPilot-System/worldbisect/blob/main/docs/hub-monitoring.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=worldbisect-monitor
+Group=worldbisect-monitor
+# For a deployed pilot replace the loopback origin with the final trusted HTTPS
+# origin used by clients. Keep the synthetic workspace separate from team data.
+ExecStart=/usr/bin/python3 /usr/local/lib/worldbisect/hub-probe.py --hub http://127.0.0.1:8090 --workspace synthetic --token-file /etc/worldbisect-probe/token --timeout 20
+TimeoutStartSec=30
+TimeoutStopSec=2
+KillMode=control-group
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=worldbisect-hub-probe
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TasksMax=16
+MemoryMax=128M
+LimitNOFILE=64
