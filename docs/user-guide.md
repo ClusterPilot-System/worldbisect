@@ -182,7 +182,21 @@ worldbisect explain --store /tmp/wb-store --format sarif <analysis-id> > analysi
 JUnit reports `PROVEN` and `SUPPORTED` as failures; `CORRELATED` and
 `UNPROVEN` are explicit skips. SARIF reports `PROVEN` as an error,
 `SUPPORTED`/`CORRELATED` as warnings, and `UNPROVEN` as a note. Report
-formatting exits `0` regardless of proof status. The policy is explicit:
+formatting exits `0` regardless of proof status.
+
+In source builds after engine 1.2.1, JUnit `time` attributes on the document,
+suite and case contain numeric seconds with millisecond precision. They sum
+positive recorded `duration_ms` values from **non-cached experiment processes**;
+cached executions are not counted again and invalid negative values are ignored.
+The `time_scope=sum_recorded_uncached_process_duration` suite property identifies
+this scope. This is not end-to-end analysis time: capture, materialization and
+other orchestration overhead are excluded. `0.000` means there is no positive
+recorded duration (including missing or sub-millisecond timing), not that the
+whole analysis completed instantaneously. Published engine 1.2.1 and existing
+Action tags are unchanged; the corrected output requires a newer source build
+or a future release.
+
+Exit-policy behavior remains:
 
 | `--fail-on` | Exit `1` for |
 | --- | --- |

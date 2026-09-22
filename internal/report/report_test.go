@@ -3,8 +3,10 @@ package report
 import (
 	"encoding/json"
 	"encoding/xml"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -183,6 +185,71 @@ func TestJUnitAndSARIFContractsCoverStatuses(t *testing.T) {
 				t.Fatal("diagnostic formats exposed secret text")
 			}
 		})
+	}
+}
+
+func TestJUnitTimingIsFiniteScopedAndDeterministic(t *testing.T) {
+	experiment := func(ms int64, cached bool) model.Experiment {
+		return model.Experiment{CacheHit: cached, Result: model.ProcessResult{DurationMS: ms}}
+	}
+	cases := []struct {
+		name        string
+		experiments []model.Experiment
+		want        string
+	}{
+		{"missing", nil, "0.000"},
+		{"milliseconds", []model.Experiment{experiment(1, false)}, "0.001"},
+		{"sum", []model.Experiment{experiment(1250, false), experiment(752, false)}, "2.002"},
+		{"cached excluded", []model.Experiment{experiment(1250, false), experiment(1250, true)}, "1.250"},
+		{"cached only", []model.Experiment{experiment(1250, true)}, "0.000"},
+		{"invalid excluded", []model.Experiment{experiment(-20, false), experiment(0, false), experiment(42, false)}, "0.042"},
+		{"no signed overflow", []model.Experiment{experiment(math.MaxInt64, false), experiment(math.MaxInt64, false)}, "18446744073709551.614"},
+	}
+	for _, status := range []model.ProofStatus{model.StatusProven, model.StatusSupported, model.StatusCorrelated, model.StatusUnproven} {
+		for _, test := range cases {
+			t.Run(string(status)+"/"+test.name, func(t *testing.T) {
+				value := &model.Analysis{ID: "ana_timing", Status: status, Experiments: test.experiments}
+				encoded, err := JUnit(value, OutputLinks{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				var document struct {
+					Time   string `xml:"time,attr"`
+					Suites []struct {
+						Time       string          `xml:"time,attr"`
+						Properties []junitProperty `xml:"properties>property"`
+						Cases      []struct {
+							Time string `xml:"time,attr"`
+						} `xml:"testcase"`
+					} `xml:"testsuite"`
+				}
+				if err := xml.Unmarshal(encoded, &document); err != nil {
+					t.Fatal(err)
+				}
+				if len(document.Suites) != 1 || len(document.Suites[0].Cases) != 1 {
+					t.Fatalf("unexpected JUnit shape: %s", encoded)
+				}
+				for _, timing := range []string{document.Time, document.Suites[0].Time, document.Suites[0].Cases[0].Time} {
+					seconds, err := strconv.ParseFloat(timing, 64)
+					if err != nil || math.IsNaN(seconds) || math.IsInf(seconds*1000, 0) || seconds < 0 || timing != test.want {
+						t.Fatalf("time=%q; want finite nonnegative seconds %q", timing, test.want)
+					}
+				}
+				scoped := false
+				for _, property := range document.Suites[0].Properties {
+					if property.Name == "time_scope" && property.Value == "sum_recorded_uncached_process_duration" {
+						scoped = true
+					}
+				}
+				if !scoped {
+					t.Fatal("JUnit timing scope was not explicit")
+				}
+				again, err := JUnit(value, OutputLinks{})
+				if err != nil || string(again) != string(encoded) {
+					t.Fatal("JUnit output is not deterministic")
+				}
+			})
+		}
 	}
 }
 

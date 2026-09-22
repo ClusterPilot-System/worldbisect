@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"math/big"
 	"sort"
 	"strings"
 
@@ -23,6 +24,7 @@ type junitTestSuites struct {
 	Tests    int              `xml:"tests,attr"`
 	Failures int              `xml:"failures,attr"`
 	Skipped  int              `xml:"skipped,attr"`
+	Time     string           `xml:"time,attr"`
 	Suites   []junitTestSuite `xml:"testsuite"`
 }
 
@@ -31,6 +33,7 @@ type junitTestSuite struct {
 	Tests      int             `xml:"tests,attr"`
 	Failures   int             `xml:"failures,attr"`
 	Skipped    int             `xml:"skipped,attr"`
+	Time       string          `xml:"time,attr"`
 	Properties []junitProperty `xml:"properties>property"`
 	Cases      []junitTestCase `xml:"testcase"`
 }
@@ -43,6 +46,7 @@ type junitProperty struct {
 type junitTestCase struct {
 	Classname string        `xml:"classname,attr"`
 	Name      string        `xml:"name,attr"`
+	Time      string        `xml:"time,attr"`
 	Failure   *junitFailure `xml:"failure,omitempty"`
 	Skipped   *junitSkipped `xml:"skipped,omitempty"`
 }
@@ -224,13 +228,15 @@ func JSON(value *model.Analysis) ([]byte, error) {
 // PROVEN and SUPPORTED are findings; CORRELATED and UNPROVEN are explicit skips.
 func JUnit(value *model.Analysis, links OutputLinks) ([]byte, error) {
 	report := Build(value)
-	caseValue := junitTestCase{Classname: "worldbisect.analysis", Name: report.AnalysisID}
+	timing := junitProcessTime(value.Experiments)
+	caseValue := junitTestCase{Classname: "worldbisect.analysis", Name: report.AnalysisID, Time: timing}
 	properties := []junitProperty{
 		{Name: "analysis_id", Value: report.AnalysisID},
 		{Name: "status", Value: report.Status},
 		{Name: "schema_version", Value: fmt.Sprint(report.SchemaVersion)},
 		{Name: "cache_hits", Value: fmt.Sprint(report.Evidence.CacheHits)},
 		{Name: "cache_misses", Value: fmt.Sprint(report.Evidence.CacheMisses)},
+		{Name: "time_scope", Value: "sum_recorded_uncached_process_duration"},
 	}
 	if links.ReportURL != "" {
 		properties = append(properties, junitProperty{Name: "report_url", Value: links.ReportURL})
@@ -248,9 +254,9 @@ func JUnit(value *model.Analysis, links OutputLinks) ([]byte, error) {
 		caseValue.Skipped = &junitSkipped{Message: report.Status}
 	}
 	document := junitTestSuites{
-		Name: "WorldBisect", Tests: 1, Failures: failures, Skipped: skipped,
+		Name: "WorldBisect", Tests: 1, Failures: failures, Skipped: skipped, Time: timing,
 		Suites: []junitTestSuite{{
-			Name: "worldbisect.analysis", Tests: 1, Failures: failures, Skipped: skipped,
+			Name: "worldbisect.analysis", Tests: 1, Failures: failures, Skipped: skipped, Time: timing,
 			Properties: properties, Cases: []junitTestCase{caseValue},
 		}},
 	}
@@ -259,6 +265,20 @@ func JUnit(value *model.Analysis, links OutputLinks) ([]byte, error) {
 		return nil, err
 	}
 	return append([]byte("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"), append(encoded, '\n')...), nil
+}
+
+// junitProcessTime excludes cached results, which retain the original process
+// duration without executing again. This is recorded process time, not analysis
+// wall time. Exact integer arithmetic also avoids overflow for imported values.
+func junitProcessTime(experiments []model.Experiment) string {
+	var milliseconds, duration, seconds, remainder big.Int
+	for _, experiment := range experiments {
+		if !experiment.CacheHit && experiment.Result.DurationMS > 0 {
+			milliseconds.Add(&milliseconds, duration.SetInt64(experiment.Result.DurationMS))
+		}
+	}
+	seconds.QuoRem(&milliseconds, big.NewInt(1000), &remainder)
+	return fmt.Sprintf("%s.%03d", seconds.String(), remainder.Int64())
 }
 
 // SARIF returns a SARIF 2.1.0 finding suitable for GitHub code scanning upload.
