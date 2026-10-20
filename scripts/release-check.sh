@@ -40,12 +40,8 @@ printf '[8/12] package\n'
 timeout --foreground 180s ./scripts/package.sh
 printf '[9/12] checksums and archive safety\n'
 (cd dist && sha256sum -c SHA256SUMS)
-for archive in dist/*.tar.gz; do
-  if tar -tzf "$archive" | grep -Eq '(^|/)\.\.(/|$)|^/'; then
-    echo "unsafe archive path: $archive" >&2
-    exit 1
-  fi
-done
+python3 -m unittest scripts/test_release_archive_safety.py
+./scripts/check-release-archives.sh dist/*.tar.gz
 printf '[10/12] binary smoke tests\n'
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
