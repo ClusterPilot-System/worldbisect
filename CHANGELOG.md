@@ -6,6 +6,20 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [1.2.2]
+
+### Added
+
+- Add a bounded synthetic monitor for the source-built team hub preview. It
+  checks health, authorization, summary persistence, audit-chain verification,
+  retention and storage limits, and emits local Prometheus text metrics.
+
+### Fixed
+
+- Emit finite JUnit `time` attributes from the recorded duration of actual
+  process executions. Cached outcomes are not counted twice, and genuinely
+  instantaneous runs retain a zero duration.
+
 ## [1.2.1]
 
 ### Fixed

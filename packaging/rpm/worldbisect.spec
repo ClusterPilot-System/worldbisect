@@ -1,5 +1,5 @@
 Name:           worldbisect
-Version:        1.2.1
+Version:        1.2.2
 Release:        1%{?dist}
 Summary:        Git bisect for runtime reality
 License:        Apache-2.0
@@ -33,6 +33,10 @@ make install DESTDIR=%{buildroot}
 /usr/lib/tmpfiles.d/worldbisect.conf
 
 %changelog
+* Tue Sep 29 2026 WorldBisect contributors - 1.2.2-1
+- Correct JUnit timing for recorded and cached process outcomes
+- Add bounded synthetic monitoring for the source-built team hub preview
+
 * Sun Sep 20 2026 WorldBisect contributors - 1.2.1-1
 - Defensive file-open fixes and reproducible release packaging
 - Source-only team hub preview and verified CI publisher identity
