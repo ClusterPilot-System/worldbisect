@@ -4,6 +4,9 @@ This runbook covers a single Linux host running the experimental report hub.
 It is an operations foundation for a self-hosted pilot, not a managed service,
 high-availability design, uptime commitment, or independently audited security
 guarantee. The diagnostic engine still runs in CI; the hub stores summaries.
+Use the [data inventory and workspace offboarding checklist](hub-data-lifecycle.md)
+to set retention and deletion rules for the live store, access configuration,
+audit metadata, logs and separately retained backups.
 
 ## Deployment boundary
 
