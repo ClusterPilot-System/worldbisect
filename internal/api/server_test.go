@@ -26,11 +26,15 @@ func testServer(t *testing.T, remote bool) (*Server, string) {
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	executable := filepath.Join(root, "test-command")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	token := "correct-horse-battery-staple"
 	cfg := config.Default()
 	cfg.DataDir = filepath.Join(root, "data")
 	cfg.RemoteExecutionEnabled = remote
-	cfg.AllowedCommands = []string{"/usr/bin/true"}
+	cfg.AllowedCommands = []string{executable}
 	cfg.AllowedWorkingDirectories = []string{workspace}
 	cfg.Tokens = []config.Token{{Name: "test", Hash: auth.HashToken(token), Scopes: []string{"read", "capture:write", "analysis:write"}}}
 	dataStore, err := store.Open(cfg.DataDir)
@@ -70,7 +74,7 @@ func TestVersionRequiresToken(t *testing.T) {
 func TestRemoteExecutionDisabled(t *testing.T) {
 	server, token := testServer(t, false)
 	body, _ := json.Marshal(model.CaptureJobRequest{
-		Command: model.CommandSpec{Arguments: []string{"/usr/bin/true"}, Directory: "/tmp"},
+		Command: model.CommandSpec{Arguments: []string{server.cfg.AllowedCommands[0]}, Directory: "/tmp"},
 		Oracle:  model.Oracle{Kind: "exit", ExpectedExitCode: intPointer(0)},
 	})
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/captures", bytes.NewReader(body))
@@ -87,7 +91,7 @@ func TestCaptureIdempotency(t *testing.T) {
 	server, token := testServer(t, true)
 	workspace := server.cfg.AllowedWorkingDirectories[0]
 	body, _ := json.Marshal(model.CaptureJobRequest{
-		Command: model.CommandSpec{Arguments: []string{"/usr/bin/true"}, Directory: workspace, TimeoutMS: 1000},
+		Command: model.CommandSpec{Arguments: []string{server.cfg.AllowedCommands[0]}, Directory: workspace, TimeoutMS: 1000},
 		Oracle:  model.Oracle{Kind: "exit", ExpectedExitCode: intPointer(0)},
 	})
 	call := func(payload []byte) *httptest.ResponseRecorder {
