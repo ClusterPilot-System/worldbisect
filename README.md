@@ -12,7 +12,8 @@ GitHub Action can save the working inputs automatically.
 
 **Start here:** [First diagnosis](docs/first-diagnosis.md) · [Add it to CI](docs/ci-baselines.md) ·
 [GitHub Marketplace](https://github.com/marketplace/actions/worldbisect-ci-diagnosis?version=action-v1.0.1) ·
-[Team report hub preview](docs/team-hub.md) · [Evidence and limits](docs/proof-boundary.md)
+[Team report hub preview](docs/team-hub.md) · [Evidence and limits](docs/proof-boundary.md) ·
+[Project status](docs/project-status.md)
 
 ## Get your first diagnosis
 
