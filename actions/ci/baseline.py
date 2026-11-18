@@ -104,6 +104,8 @@ def snapshot(root, contract, source):
 
 
 def validate(document, contract, source=None):
+    if not isinstance(document, dict):
+        raise ValueError('invalid baseline document')
     if (document.get('schema') != SCHEMA or document.get('contract') != contract
             or (source is not None and document.get('source') != source)):
         raise ValueError('baseline compatibility or provenance mismatch')
@@ -112,6 +114,8 @@ def validate(document, contract, source=None):
         raise ValueError('invalid file count')
     names, total, decoded = [], 0, []
     for item in entries:
+        if not isinstance(item, dict):
+            raise ValueError('invalid file record')
         name = item['path']
         safe_path(name)
         names.append(name)
