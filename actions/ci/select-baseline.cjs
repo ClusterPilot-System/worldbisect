@@ -30,7 +30,11 @@ module.exports = async function selectBaseline({github, context, core, env = pro
     const runs = response.data.workflow_runs;
     for (const run of runs) {
       const created = Date.parse(run.created_at);
+      // A run started earlier can finish (or be rerun) after this diagnosis began.
+      // Only use a baseline whose last reported update predates this run.
+      const completedBy = Date.parse(run.updated_at);
       if (run.id === context.runId || !Number.isFinite(created) || created >= currentTime || created < cutoff ||
+          !Number.isFinite(completedBy) || completedBy < created || completedBy > currentTime ||
           run.workflow_id !== current.workflow_id || run.event !== 'push' ||
           run.conclusion !== 'success' || run.head_branch !== branch ||
           run.head_repository?.full_name !== `${owner}/${repo}`) continue;

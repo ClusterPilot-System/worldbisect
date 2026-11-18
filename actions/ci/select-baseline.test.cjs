@@ -6,7 +6,8 @@ const select = require('./select-baseline.cjs');
 function fixture() {
   const now = Date.now();
   const run = {id: 41, workflow_id: 5, event: 'push', conclusion: 'success', head_branch: 'main',
-    head_repository: {full_name: 'acme/test'}, head_sha: 'good', created_at: new Date(now - 60000).toISOString()};
+    head_repository: {full_name: 'acme/test'}, head_sha: 'good',
+    created_at: new Date(now - 60000).toISOString(), updated_at: new Date(now - 30000).toISOString()};
   const artifact = {id: 7, name: 'expected', expired: false, size_in_bytes: 123,
     workflow_run: {id: 41, head_sha: 'good'}};
   const outputs = {};
@@ -33,11 +34,27 @@ test('selects exact successful trusted workflow and artifact', async () => {
 });
 for (const [key, value] of [['event', 'pull_request'], ['conclusion', 'failure'], ['head_branch', 'feature'],
   ['workflow_id', 99], ['id', 42], ['created_at', '2000-01-01'], ['created_at', '2099-01-01'],
+  ['updated_at', '2099-01-01'], ['updated_at', 'invalid'], ['updated_at', '2000-01-01'],
   ['head_repository', {full_name: 'fork/test'}]]) {
   test(`rejects incompatible run ${key}=${JSON.stringify(value)}`, async () => {
     const f = fixture(); f.run[key] = value; await select(f.args); assert.deepEqual(f.outputs, {});
   });
 }
+test('does not select a run that finished or was rerun after the current run started', async () => {
+  const f = fixture();
+  f.run.updated_at = new Date(Date.now() + 60000).toISOString();
+  await select(f.args); assert.deepEqual(f.outputs, {});
+});
+test('missing completion timestamp cannot establish an earlier known-good run', async () => {
+  const f = fixture(); delete f.run.updated_at;
+  await select(f.args); assert.deepEqual(f.outputs, {});
+});
+test('falls back to an older run when a newer run finished too late', async () => {
+  const f = fixture();
+  const late = {...f.run, id: 40, head_sha: 'late', updated_at: new Date(Date.now() + 60000).toISOString()};
+  f.args.github.rest.actions.listWorkflowRuns = async () => ({data: {workflow_runs: [late, f.run]}});
+  await select(f.args); assert.equal(f.outputs['run-id'], '41');
+});
 for (const [key, value] of [['name', 'other'], ['expired', true], ['size_in_bytes', 30 * 1024 * 1024],
   ['workflow_run', {id: 999, head_sha: 'good'}], ['workflow_run', {id: 41, head_sha: 'wrong'}]]) {
   test(`rejects incompatible artifact ${key}`, async () => {
