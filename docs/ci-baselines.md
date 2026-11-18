@@ -79,6 +79,8 @@ when you need explicitly controlled environment comparisons.
 3. If it passes on a default-branch push, upload a baseline with short retention.
 4. If it fails, look for a prior successful default-branch **workflow run**, not
    just a successful step. Failed, cancelled, PR and current runs are excluded.
+   A run that finished or was rerun after this run started is not a prior
+   known-good baseline, even if it originally started earlier.
 5. Download the exact matching artifact and validate its format, file digests,
    repository/workflow/job/key, platform, command, timeout, selection and source run.
 6. Re-run the old and current inputs on this runner. If they still pass/fail as
