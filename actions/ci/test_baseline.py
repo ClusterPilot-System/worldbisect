@@ -74,6 +74,16 @@ class SnapshotTests(unittest.TestCase):
             with self.subTest(mutate=mutate), self.assertRaises((ValueError, KeyError)):
                 b.validate(document, self.contract, self.source)
 
+    def test_rejects_non_object_baseline_and_file_records(self):
+        for document in [None, [], 'baseline']:
+            with self.subTest(document=document), self.assertRaises(ValueError):
+                b.validate(document, self.contract, self.source)
+        for record in [None, [], 'file']:
+            document = self.snapshot()
+            document['entries'][0] = record
+            with self.subTest(record=record), self.assertRaises(ValueError):
+                b.validate(document, self.contract, self.source)
+
     def test_overlapping_paths_and_json_limit(self):
         contract = {'files': ['check.sh', 'check.sh/child']}
         document = {'schema': b.SCHEMA, 'contract': contract,
@@ -214,6 +224,13 @@ class RealEngineTests(unittest.TestCase):
         with patch.dict(os.environ, {'BASELINE_LOOKUP': 'failure'}):
             b.diagnose(bad)
         self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_UNAVAILABLE')
+
+    def test_malformed_baseline_reports_invalid_instead_of_diagnostic_error(self):
+        _, bad = self.pair()
+        (bad / 'download' / 'baseline.json').write_text('[]')
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
 
     def test_timeout_and_missing_executable(self):
         (self.workspace / 'check.sh').write_text('#!/bin/sh\nsleep 10\n')
