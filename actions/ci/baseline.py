@@ -155,7 +155,15 @@ def materialize(document, contract, destination, source=None):
 def load(path):
     if path.stat().st_size > MAX_JSON or path.is_symlink():
         raise ValueError('invalid snapshot file')
-    return json.loads(path.read_text())
+    def unique_keys(pairs):
+        document = {}
+        for key, value in pairs:
+            if key in document:
+                raise ValueError('duplicate JSON key')
+            document[key] = value
+        return document
+
+    return json.loads(path.read_text(), object_pairs_hook=unique_keys)
 
 
 def save(path, document):
