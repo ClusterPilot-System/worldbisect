@@ -95,6 +95,15 @@ class SnapshotTests(unittest.TestCase):
         with patch.object(b, 'MAX_JSON', 1), self.assertRaises(ValueError):
             b.load(path)
 
+    def test_load_rejects_duplicate_json_keys(self):
+        path = self.root / 'duplicate.json'
+        for document in ['{"schema":"bad","schema":"good"}',
+                         '{"contract":{"files":[],"files":["check.sh"]}}']:
+            with self.subTest(document=document):
+                path.write_text(document)
+                with self.assertRaisesRegex(ValueError, 'duplicate JSON key'):
+                    b.load(path)
+
 
 class SummaryTests(unittest.TestCase):
     def test_four_answers_without_long_report(self):
@@ -228,6 +237,14 @@ class RealEngineTests(unittest.TestCase):
     def test_malformed_baseline_reports_invalid_instead_of_diagnostic_error(self):
         _, bad = self.pair()
         (bad / 'download' / 'baseline.json').write_text('[]')
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
+
+    def test_duplicate_baseline_key_reports_invalid(self):
+        _, bad = self.pair()
+        path = bad / 'download' / 'baseline.json'
+        path.write_text(path.read_text().replace('"schema":', '"schema":"bogus","schema":', 1))
         b.diagnose(bad)
         self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
         self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
