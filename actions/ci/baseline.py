@@ -163,7 +163,11 @@ def load(path):
             document[key] = value
         return document
 
-    return json.loads(path.read_text(), object_pairs_hook=unique_keys)
+    def reject_nonfinite(value):
+        raise ValueError('non-finite JSON number')
+
+    return json.loads(path.read_text(), object_pairs_hook=unique_keys,
+                      parse_constant=reject_nonfinite)
 
 
 def save(path, document):
