@@ -112,6 +112,14 @@ class SnapshotTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'non-finite JSON number'):
                     b.load(path)
 
+    def test_save_does_not_write_nonfinite_json_numbers(self):
+        path = self.root / 'nonfinite-output.json'
+        for value in [float('nan'), float('inf'), float('-inf')]:
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    b.save(path, {'value': value})
+                self.assertFalse(path.exists())
+
 
 class SummaryTests(unittest.TestCase):
     def test_four_answers_without_long_report(self):
