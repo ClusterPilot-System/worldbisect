@@ -125,13 +125,10 @@ and diff filters. The proposal does not advertise WorldBisect.
 
 - [Exact README patch](../../tests/integrations/reviewdog/upstream.patch), checked against README blob `9e786b03e63c170730ddb0f63269461bd064d576`.
 - [Complete submission text](../../tests/integrations/reviewdog/upstream-submission.md), including tested scope and project/AI-assistance disclosure.
-- [Published issue #2821](https://github.com/reviewdog/reviewdog/issues/2821): opened by `JossefMo1` on September 20 through the authenticated GitHub web UI. The README patch is prepared and awaits maintainer feedback; no upstream PR has been published or accepted.
+- [Issue #2821](https://github.com/reviewdog/reviewdog/issues/2821): opened by `JossefMo1` on September 20. It was closed on October 15 by the merged maintainer [PR #2881](https://github.com/reviewdog/reviewdog/pull/2881), which documents the local SARIF check and path/filter pitfalls. The historical patch below was not submitted as our PR and is now superseded.
 - [Publication status](../../tests/integrations/reviewdog/upstream-status.json) preserves the earlier GitHub connector rejection: HTTP **403**, `Resource not accessible by integration`. The later web publication does not establish external write access for that connector.
 
-Follow the existing issue for maintainer feedback before preparing an upstream PR.
-To submit the patch from an appropriately authorized fork, update that fork
-from upstream, create a branch, run `git apply --check /path/to/upstream.patch`
-and then `git apply /path/to/upstream.patch`. Review the README diff before opening
-a PR against `reviewdog/reviewdog:master`; recheck the current contribution rules
-and search for a duplicate first. Publication of the issue is not upstream
-acceptance or endorsement of WorldBisect.
+Do not submit the historical patch: upstream already merged documentation for
+this topic in PR #2881. Recheck the current upstream README before proposing any
+new, distinct change. The maintainer documentation change is not an endorsement
+of WorldBisect or evidence that remote reporting was tested.
