@@ -171,7 +171,7 @@ def load(path):
 
 
 def save(path, document):
-    path.write_text(json.dumps(document, sort_keys=True) + '\n')
+    path.write_text(json.dumps(document, sort_keys=True, allow_nan=False) + '\n')
     path.chmod(0o600)
 
 
