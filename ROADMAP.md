@@ -24,8 +24,10 @@ reversion posture. Items that need a new trust boundary or a new causal domain
 are not silently added to 1.x; they require a public architecture proposal and
 may belong in a future major version.
 
-The current newcomer queue is [issue #36](https://github.com/ClusterPilot-System/worldbisect/issues/36)
+Completed newcomer examples are [issue #36](https://github.com/ClusterPilot-System/worldbisect/issues/36)
 and [issue #37](https://github.com/ClusterPilot-System/worldbisect/issues/37).
+For current opportunities, use the [open good-first-issue filter](https://github.com/ClusterPilot-System/worldbisect/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+and the proposal guidance in [CONTRIBUTING.md](CONTRIBUTING.md).
 Monthly progress is recorded in [`docs/maintenance/`](docs/maintenance/).
 
 Accepted 1.x work:
