@@ -106,7 +106,7 @@ class SnapshotTests(unittest.TestCase):
 
     def test_load_rejects_nonfinite_json_numbers(self):
         path = self.root / 'nonfinite.json'
-        for value in ['NaN', 'Infinity', '-Infinity']:
+        for value in ['NaN', 'Infinity', '-Infinity', '1e309', '-1e309']:
             with self.subTest(value=value):
                 path.write_text('{"extra":' + value + '}')
                 with self.assertRaisesRegex(ValueError, 'non-finite JSON number'):
@@ -269,6 +269,14 @@ class RealEngineTests(unittest.TestCase):
         _, bad = self.pair()
         path = bad / 'download' / 'baseline.json'
         path.write_text(path.read_text().replace('{', '{"extra":NaN,', 1))
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
+
+    def test_overflowing_baseline_number_reports_invalid(self):
+        _, bad = self.pair()
+        path = bad / 'download' / 'baseline.json'
+        path.write_text(path.read_text().replace('{', '{"extra":1e309,', 1))
         b.diagnose(bad)
         self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
         self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
