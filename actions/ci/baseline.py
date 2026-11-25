@@ -4,6 +4,7 @@ import base64
 import hashlib
 import html
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -166,8 +167,14 @@ def load(path):
     def reject_nonfinite(value):
         raise ValueError('non-finite JSON number')
 
+    def finite_float(value):
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError('non-finite JSON number')
+        return number
+
     return json.loads(path.read_text(), object_pairs_hook=unique_keys,
-                      parse_constant=reject_nonfinite)
+                      parse_constant=reject_nonfinite, parse_float=finite_float)
 
 
 def save(path, document):
