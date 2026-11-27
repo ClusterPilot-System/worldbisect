@@ -112,6 +112,12 @@ class SnapshotTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'non-finite JSON number'):
                     b.load(path)
 
+    def test_load_rejects_invalid_utf8(self):
+        path = self.root / 'invalid-utf8.json'
+        path.write_bytes(b'{"extra":"\xff"}')
+        with self.assertRaises(UnicodeError):
+            b.load(path)
+
     def test_save_does_not_write_nonfinite_json_numbers(self):
         path = self.root / 'nonfinite-output.json'
         for value in [float('nan'), float('inf'), float('-inf')]:
@@ -277,6 +283,13 @@ class RealEngineTests(unittest.TestCase):
         _, bad = self.pair()
         path = bad / 'download' / 'baseline.json'
         path.write_text(path.read_text().replace('{', '{"extra":1e309,', 1))
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
+
+    def test_invalid_utf8_baseline_reports_invalid(self):
+        _, bad = self.pair()
+        (bad / 'download' / 'baseline.json').write_bytes(b'{"extra":"\xff"}')
         b.diagnose(bad)
         self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
         self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
