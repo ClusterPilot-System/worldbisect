@@ -293,7 +293,7 @@ def diagnose(root):
             source = {'run_id': os.environ['BASELINE_RUN_ID'], 'sha': os.environ['BASELINE_SHA']}
             materialize(document, state['contract'], root / 'good', source)
             state['baseline_source'] = source
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, UnicodeError, ValueError, KeyError, TypeError):
             state['status'] = 'BASELINE_INVALID'
         else:
             state['status'] = 'DIAGNOSTIC_ERROR'
