@@ -4,6 +4,7 @@ import base64
 import hashlib
 import html
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -104,6 +105,8 @@ def snapshot(root, contract, source):
 
 
 def validate(document, contract, source=None):
+    if not isinstance(document, dict):
+        raise ValueError('invalid baseline document')
     if (document.get('schema') != SCHEMA or document.get('contract') != contract
             or (source is not None and document.get('source') != source)):
         raise ValueError('baseline compatibility or provenance mismatch')
@@ -112,6 +115,8 @@ def validate(document, contract, source=None):
         raise ValueError('invalid file count')
     names, total, decoded = [], 0, []
     for item in entries:
+        if not isinstance(item, dict):
+            raise ValueError('invalid file record')
         name = item['path']
         safe_path(name)
         names.append(name)
@@ -151,11 +156,29 @@ def materialize(document, contract, destination, source=None):
 def load(path):
     if path.stat().st_size > MAX_JSON or path.is_symlink():
         raise ValueError('invalid snapshot file')
-    return json.loads(path.read_text())
+    def unique_keys(pairs):
+        document = {}
+        for key, value in pairs:
+            if key in document:
+                raise ValueError('duplicate JSON key')
+            document[key] = value
+        return document
+
+    def reject_nonfinite(value):
+        raise ValueError('non-finite JSON number')
+
+    def finite_float(value):
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError('non-finite JSON number')
+        return number
+
+    return json.loads(path.read_text(), object_pairs_hook=unique_keys,
+                      parse_constant=reject_nonfinite, parse_float=finite_float)
 
 
 def save(path, document):
-    path.write_text(json.dumps(document, sort_keys=True) + '\n')
+    path.write_text(json.dumps(document, sort_keys=True, allow_nan=False) + '\n')
     path.chmod(0o600)
 
 
@@ -270,7 +293,7 @@ def diagnose(root):
             source = {'run_id': os.environ['BASELINE_RUN_ID'], 'sha': os.environ['BASELINE_SHA']}
             materialize(document, state['contract'], root / 'good', source)
             state['baseline_source'] = source
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, UnicodeError, ValueError, KeyError, TypeError):
             state['status'] = 'BASELINE_INVALID'
         else:
             state['status'] = 'DIAGNOSTIC_ERROR'

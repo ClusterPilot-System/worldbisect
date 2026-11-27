@@ -74,6 +74,16 @@ class SnapshotTests(unittest.TestCase):
             with self.subTest(mutate=mutate), self.assertRaises((ValueError, KeyError)):
                 b.validate(document, self.contract, self.source)
 
+    def test_rejects_non_object_baseline_and_file_records(self):
+        for document in [None, [], 'baseline']:
+            with self.subTest(document=document), self.assertRaises(ValueError):
+                b.validate(document, self.contract, self.source)
+        for record in [None, [], 'file']:
+            document = self.snapshot()
+            document['entries'][0] = record
+            with self.subTest(record=record), self.assertRaises(ValueError):
+                b.validate(document, self.contract, self.source)
+
     def test_overlapping_paths_and_json_limit(self):
         contract = {'files': ['check.sh', 'check.sh/child']}
         document = {'schema': b.SCHEMA, 'contract': contract,
@@ -84,6 +94,37 @@ class SnapshotTests(unittest.TestCase):
         path.write_text('{}')
         with patch.object(b, 'MAX_JSON', 1), self.assertRaises(ValueError):
             b.load(path)
+
+    def test_load_rejects_duplicate_json_keys(self):
+        path = self.root / 'duplicate.json'
+        for document in ['{"schema":"bad","schema":"good"}',
+                         '{"contract":{"files":[],"files":["check.sh"]}}']:
+            with self.subTest(document=document):
+                path.write_text(document)
+                with self.assertRaisesRegex(ValueError, 'duplicate JSON key'):
+                    b.load(path)
+
+    def test_load_rejects_nonfinite_json_numbers(self):
+        path = self.root / 'nonfinite.json'
+        for value in ['NaN', 'Infinity', '-Infinity', '1e309', '-1e309']:
+            with self.subTest(value=value):
+                path.write_text('{"extra":' + value + '}')
+                with self.assertRaisesRegex(ValueError, 'non-finite JSON number'):
+                    b.load(path)
+
+    def test_load_rejects_invalid_utf8(self):
+        path = self.root / 'invalid-utf8.json'
+        path.write_bytes(b'{"extra":"\xff"}')
+        with self.assertRaises(UnicodeError):
+            b.load(path)
+
+    def test_save_does_not_write_nonfinite_json_numbers(self):
+        path = self.root / 'nonfinite-output.json'
+        for value in [float('nan'), float('inf'), float('-inf')]:
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    b.save(path, {'value': value})
+                self.assertFalse(path.exists())
 
 
 class SummaryTests(unittest.TestCase):
@@ -214,6 +255,44 @@ class RealEngineTests(unittest.TestCase):
         with patch.dict(os.environ, {'BASELINE_LOOKUP': 'failure'}):
             b.diagnose(bad)
         self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_UNAVAILABLE')
+
+    def test_malformed_baseline_reports_invalid_instead_of_diagnostic_error(self):
+        _, bad = self.pair()
+        (bad / 'download' / 'baseline.json').write_text('[]')
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
+
+    def test_duplicate_baseline_key_reports_invalid(self):
+        _, bad = self.pair()
+        path = bad / 'download' / 'baseline.json'
+        path.write_text(path.read_text().replace('"schema":', '"schema":"bogus","schema":', 1))
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
+
+    def test_nonfinite_baseline_number_reports_invalid(self):
+        _, bad = self.pair()
+        path = bad / 'download' / 'baseline.json'
+        path.write_text(path.read_text().replace('{', '{"extra":NaN,', 1))
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
+
+    def test_overflowing_baseline_number_reports_invalid(self):
+        _, bad = self.pair()
+        path = bad / 'download' / 'baseline.json'
+        path.write_text(path.read_text().replace('{', '{"extra":1e309,', 1))
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
+
+    def test_invalid_utf8_baseline_reports_invalid(self):
+        _, bad = self.pair()
+        (bad / 'download' / 'baseline.json').write_bytes(b'{"extra":"\xff"}')
+        b.diagnose(bad)
+        self.assertEqual(b.load(bad / 'state.json')['status'], 'BASELINE_INVALID')
+        self.assertEqual(b.load(bad / 'state.json')['command_exit'], 1)
 
     def test_timeout_and_missing_executable(self):
         (self.workspace / 'check.sh').write_text('#!/bin/sh\nsleep 10\n')
